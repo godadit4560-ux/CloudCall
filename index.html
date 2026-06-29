@@ -1,0 +1,2024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CloudCall — Crystal Clear Voice &amp; Video Calling</title>
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app":       "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+  }
+}
+</script>
+<style>
+/* ── RESET ───────────────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-void:#080C14;--bg-deep:#0D1220;
+  --bg-card:rgba(255,255,255,0.045);--bg-card-hover:rgba(255,255,255,0.075);
+  --border:rgba(255,255,255,0.08);--border-bright:rgba(255,255,255,0.18);
+  --accent:#2D6CFF;--accent-glow:rgba(45,108,255,0.35);
+  --accent-teal:#00D4C8;--teal-glow:rgba(0,212,200,0.25);
+  --text-primary:#F0F4FF;--text-secondary:#8A94B0;--text-muted:#4A5270;
+  --success:#00E676;--danger:#FF4B6E;--warning:#FFB020;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Helvetica,Arial,sans-serif;
+  --radius-sm:10px;--radius-md:18px;--radius-lg:28px;--radius-xl:40px;
+  --blur:24px;--trans:cubic-bezier(0.4,0,0.2,1)
+}
+html{font-size:16px}
+body{font-family:var(--font);background:var(--bg-void);color:var(--text-primary);
+  min-height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;user-select:none}
+
+/* ── AMBIENT ORBS ──────────────────────────────────────────────────────── */
+.bg-orb{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;z-index:0;
+  animation:orb-drift 20s ease-in-out infinite alternate}
+.bg-orb-1{width:600px;height:600px;background:radial-gradient(circle,rgba(45,108,255,0.18) 0%,transparent 70%);top:-150px;left:-100px;animation-delay:0s}
+.bg-orb-2{width:500px;height:500px;background:radial-gradient(circle,rgba(0,212,200,0.12) 0%,transparent 70%);bottom:-100px;right:-80px;animation-delay:-10s}
+.bg-orb-3{width:350px;height:350px;background:radial-gradient(circle,rgba(120,60,255,0.1) 0%,transparent 70%);top:40%;left:40%;animation-delay:-5s}
+@keyframes orb-drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(30px,-20px) scale(1.05)}100%{transform:translate(-20px,30px) scale(0.95)}}
+
+/* ── APP WRAPPER ───────────────────────────────────────────────────────── */
+#app{position:relative;z-index:1;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+
+/* ── SCREENS ────────────────────────────────────────────────────────────── */
+.screen{display:none;flex-direction:column;align-items:center;justify-content:center;
+  width:100%;height:100%;animation:screen-in 0.4s var(--trans) both}
+.screen.active{display:flex}
+@keyframes screen-in{from{opacity:0;transform:translateY(16px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* ── GLASS CARD ─────────────────────────────────────────────────────────── */
+.glass-card{background:var(--bg-card);backdrop-filter:blur(var(--blur)) saturate(180%);
+  -webkit-backdrop-filter:blur(var(--blur)) saturate(180%);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:44px 50px;max-width:520px;width:90%;position:relative;overflow:hidden}
+.glass-card::before{content:'';position:absolute;inset:0;border-radius:var(--radius-lg);
+  background:linear-gradient(135deg,rgba(255,255,255,0.06) 0%,transparent 60%);pointer-events:none}
+
+/* ── LOGO ───────────────────────────────────────────────────────────────── */
+.logo-wrap{display:flex;align-items:center;gap:14px;margin-bottom:32px;justify-content:center}
+.logo-icon{width:52px;height:52px;background:linear-gradient(135deg,var(--accent),var(--accent-teal));
+  border-radius:16px;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 32px var(--accent-glow),0 0 8px rgba(0,212,200,0.2);flex-shrink:0}
+.logo-icon svg{width:28px;height:28px}
+.logo-text{font-size:28px;font-weight:700;letter-spacing:-0.5px;
+  background:linear-gradient(135deg,#fff 30%,var(--accent-teal));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* ── HEADINGS ────────────────────────────────────────────────────────────── */
+.tagline{font-size:15px;color:var(--text-secondary);text-align:center;margin-bottom:36px;letter-spacing:0.2px;line-height:1.6}
+h1.screen-title{font-size:26px;font-weight:700;letter-spacing:-0.4px;margin-bottom:8px;text-align:center}
+.screen-sub{font-size:14px;color:var(--text-secondary);text-align:center;margin-bottom:28px}
+
+/* ── BUTTONS ─────────────────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;border:none;outline:none;
+  cursor:pointer;font-family:var(--font);font-size:15px;font-weight:600;border-radius:var(--radius-md);
+  padding:15px 28px;transition:all 0.2s var(--trans);position:relative;overflow:hidden;letter-spacing:0.1px;width:100%}
+.btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,0);transition:background 0.2s}
+.btn:hover::after{background:rgba(255,255,255,0.07)}
+.btn:active{transform:scale(0.97)}
+.btn:disabled{opacity:0.4;cursor:not-allowed;pointer-events:none}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#4D8AFF);color:#fff;box-shadow:0 4px 24px var(--accent-glow),0 1px 3px rgba(0,0,0,0.3)}
+.btn-primary:hover{box-shadow:0 6px 32px var(--accent-glow),0 2px 6px rgba(0,0,0,0.4);transform:translateY(-1px)}
+.btn-secondary{background:var(--bg-card);border:1px solid var(--border-bright);color:var(--text-primary);backdrop-filter:blur(12px)}
+.btn-secondary:hover{border-color:rgba(255,255,255,0.28);background:var(--bg-card-hover);transform:translateY(-1px)}
+.btn-danger{background:linear-gradient(135deg,var(--danger),#FF2D55);color:#fff;box-shadow:0 4px 24px rgba(255,75,110,0.35)}
+.btn-danger:hover{box-shadow:0 6px 32px rgba(255,75,110,0.5);transform:translateY(-1px)}
+.btn-success{background:linear-gradient(135deg,#00C853,var(--success));color:#082010;font-weight:700;box-shadow:0 4px 24px rgba(0,230,118,0.3)}
+.btn-success:hover{box-shadow:0 6px 32px rgba(0,230,118,0.45);transform:translateY(-1px)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-secondary)}
+.btn-ghost:hover{border-color:var(--border-bright);color:var(--text-primary)}
+.btn-row{display:flex;flex-direction:column;gap:12px;width:100%}
+.btn-row-h{display:flex;gap:12px;width:100%}
+.btn-row-h .btn{flex:1}
+
+/* ── INPUTS ──────────────────────────────────────────────────────────────── */
+.input-wrap{position:relative;margin-bottom:16px}
+.input-label{display:block;font-size:12px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-secondary);margin-bottom:10px}
+.glass-input{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:14px 18px;font-family:var(--font);font-size:24px;
+  font-weight:700;letter-spacing:8px;color:var(--text-primary);outline:none;
+  transition:border-color 0.2s,box-shadow 0.2s;text-align:center}
+.glass-input::placeholder{color:var(--text-muted);letter-spacing:6px;font-weight:400}
+.glass-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.text-input{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:13px 16px;font-family:var(--font);font-size:15px;
+  font-weight:500;color:var(--text-primary);outline:none;transition:border-color 0.2s,box-shadow 0.2s;letter-spacing:0}
+.text-input::placeholder{color:var(--text-muted);font-weight:400}
+.text-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+
+/* ── CODE DISPLAY ────────────────────────────────────────────────────────── */
+.code-display-wrap{text-align:center;margin:24px 0}
+.code-label-sm{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);margin-bottom:12px}
+.code-display{font-size:52px;font-weight:800;letter-spacing:10px;
+  background:linear-gradient(135deg,#fff 30%,var(--accent-teal));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  font-variant-numeric:tabular-nums;line-height:1;margin-bottom:20px}
+.code-copy-row{display:flex;align-items:center;justify-content:center;gap:10px}
+.copy-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.05);
+  border:1px solid var(--border);border-radius:100px;padding:8px 18px 8px 14px;
+  font-size:13px;font-weight:600;color:var(--text-secondary);cursor:pointer;transition:all 0.2s var(--trans)}
+.copy-badge:hover{background:rgba(255,255,255,0.1);border-color:var(--border-bright);color:var(--text-primary)}
+.copy-badge svg{width:15px;height:15px}
+
+/* ── STATUS / DOTS ───────────────────────────────────────────────────────── */
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--warning);display:inline-block;
+  animation:pulse-dot 1.8s ease-in-out infinite;flex-shrink:0}
+.status-dot.green{background:var(--success);animation:none}
+.status-dot.red{background:var(--danger);animation:none}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.7)}}
+.status-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);justify-content:center;margin-top:12px}
+.dots{display:inline-flex;gap:4px;align-items:center;vertical-align:middle}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--text-muted);animation:dot-bounce 1.4s ease-in-out infinite}
+.dot:nth-child(1){animation-delay:0s}.dot:nth-child(2){animation-delay:0.2s}.dot:nth-child(3){animation-delay:0.4s}
+@keyframes dot-bounce{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}
+
+/* ── MESSAGES ────────────────────────────────────────────────────────────── */
+.inline-msg{display:none;align-items:center;gap:8px;font-size:13px;padding:10px 14px;
+  border-radius:var(--radius-sm);margin-top:12px;animation:msg-in 0.25s var(--trans) both}
+.inline-msg.visible{display:flex}
+.inline-msg.error{background:rgba(255,75,110,0.12);border:1px solid rgba(255,75,110,0.25);color:#FF8099}
+.inline-msg.success{background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.2);color:#66FFB0}
+.inline-msg.info{background:rgba(45,108,255,0.1);border:1px solid rgba(45,108,255,0.25);color:#82AAFF}
+.inline-msg svg{width:15px;height:15px;flex-shrink:0}
+@keyframes msg-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── BACK LINK ───────────────────────────────────────────────────────────── */
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);
+  cursor:pointer;padding:6px 0;margin-top:16px;transition:color 0.2s;
+  background:none;border:none;outline:none;font-family:var(--font)}
+.back-link:hover{color:var(--text-primary)}
+.back-link svg{width:14px;height:14px}
+
+/* ── TOASTS ──────────────────────────────────────────────────────────────── */
+#toast-container{position:fixed;bottom:28px;right:28px;z-index:9999;display:flex;flex-direction:column;gap:12px;align-items:flex-end}
+.toast{background:var(--bg-deep);border:1px solid var(--border-bright);border-radius:var(--radius-md);
+  padding:18px 20px;min-width:320px;max-width:400px;
+  backdrop-filter:blur(var(--blur));-webkit-backdrop-filter:blur(var(--blur));
+  box-shadow:0 20px 60px rgba(0,0,0,0.5),0 0 0 1px var(--border);
+  animation:toast-in 0.35s var(--trans) both;position:relative;overflow:hidden}
+.toast::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent-teal))}
+.toast.closing{animation:toast-out 0.3s var(--trans) forwards}
+@keyframes toast-in{from{opacity:0;transform:translateX(40px) scale(0.95)}to{opacity:1;transform:translateX(0) scale(1)}}
+@keyframes toast-out{from{opacity:1;transform:translateX(0) scale(1)}to{opacity:0;transform:translateX(40px) scale(0.95)}}
+.toast-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.toast-logo-icon{width:28px;height:28px;background:linear-gradient(135deg,var(--accent),var(--accent-teal));
+  border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.toast-logo-icon svg{width:15px;height:15px}
+.toast-brand{font-size:12px;font-weight:700;letter-spacing:0.5px;color:var(--text-primary)}
+.toast-caller-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.toast-caller-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border-bright);flex-shrink:0}
+.toast-caller-name{font-size:15px;font-weight:700;color:var(--text-primary)}
+.toast-caller-sub{font-size:12px;color:var(--text-secondary);margin-top:2px}
+.toast-title{font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:3px}
+.toast-body{font-size:13px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5}
+.toast-actions{display:flex;gap:8px}
+.toast-btn{flex:1;padding:9px 14px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;
+  font-family:var(--font);cursor:pointer;border:none;outline:none;transition:all 0.2s var(--trans)}
+.toast-btn-accept{background:linear-gradient(135deg,var(--accent),#4D8AFF);color:#fff;box-shadow:0 2px 12px var(--accent-glow)}
+.toast-btn-accept:hover{box-shadow:0 4px 20px var(--accent-glow);transform:translateY(-1px)}
+.toast-btn-decline{background:rgba(255,75,110,0.12);border:1px solid rgba(255,75,110,0.25);color:#FF8099}
+.toast-btn-decline:hover{background:rgba(255,75,110,0.22);transform:translateY(-1px)}
+
+/* ── LOADING ─────────────────────────────────────────────────────────────── */
+.spinner{width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;background:rgba(8,12,20,0.8);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-size:14px;
+  color:var(--text-secondary);opacity:0;pointer-events:none;transition:opacity 0.25s}
+.loading-overlay.visible{opacity:1;pointer-events:all}
+.loading-ring{width:52px;height:52px;border-radius:50%;border:2px solid rgba(45,108,255,0.15);
+  border-top-color:var(--accent);animation:spin 0.8s linear infinite;position:relative}
+.loading-ring::after{content:'';position:absolute;inset:4px;border-radius:50%;
+  border:2px solid transparent;border-bottom-color:var(--accent-teal);animation:spin 1.2s linear infinite reverse}
+
+/* ── DECLINED ────────────────────────────────────────────────────────────── */
+.declined-icon{width:72px;height:72px;border-radius:50%;background:rgba(255,75,110,0.12);
+  border:1px solid rgba(255,75,110,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
+.declined-icon svg{width:34px;height:34px;color:var(--danger)}
+
+/* ── KBD HINTS ───────────────────────────────────────────────────────────── */
+.kbd-hint{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:16px;z-index:10}
+.kbd-pill{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);
+  border:1px solid var(--border);border-radius:100px;padding:5px 12px;font-size:11px;color:var(--text-muted);letter-spacing:0.3px}
+kbd{display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.07);
+  border:1px solid var(--border-bright);border-radius:4px;padding:1px 6px;
+  font-family:var(--font);font-size:10px;color:var(--text-secondary)}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WELCOME SCREEN
+═══════════════════════════════════════════════════════════════════════════ */
+.avatar-upload-zone{display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:28px}
+.avatar-preview-wrap{position:relative;cursor:pointer}
+.avatar-preview{width:96px;height:96px;border-radius:50%;
+  background:linear-gradient(135deg,rgba(45,108,255,0.2),rgba(0,212,200,0.12));
+  border:2px dashed rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;
+  overflow:hidden;transition:all 0.25s var(--trans);font-size:32px}
+.avatar-preview:hover,.avatar-preview-wrap:hover .avatar-preview{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);border-style:solid}
+.avatar-preview img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.avatar-edit-badge{position:absolute;bottom:0;right:0;width:28px;height:28px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent-teal));
+  display:flex;align-items:center;justify-content:center;border:2px solid var(--bg-void);
+  cursor:pointer;transition:transform 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.4)}
+.avatar-edit-badge:hover{transform:scale(1.12)}
+.avatar-edit-badge svg{width:13px;height:13px}
+.avatar-upload-hint{font-size:12px;color:var(--text-muted);text-align:center;line-height:1.5}
+#avatar-file-input{display:none}
+#crop-canvas{display:none}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PROFILE CHIP + DROPDOWN
+═══════════════════════════════════════════════════════════════════════════ */
+.profile-chip{position:fixed;top:20px;right:20px;z-index:200;display:flex;align-items:center;gap:10px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:100px;padding:6px 14px 6px 6px;
+  backdrop-filter:blur(12px);cursor:pointer;transition:all 0.2s var(--trans)}
+.profile-chip:hover{border-color:var(--border-bright);background:var(--bg-card-hover)}
+.profile-chip-avatar{width:30px;height:30px;border-radius:50%;object-fit:cover;border:1.5px solid var(--border-bright)}
+.profile-chip-name{font-size:13px;font-weight:600;color:var(--text-primary);max-width:120px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.profile-chip-sub{font-size:11px;color:var(--text-muted)}
+.profile-dropdown{position:fixed;top:64px;right:20px;z-index:300;background:var(--bg-deep);
+  border:1px solid var(--border-bright);border-radius:var(--radius-md);padding:16px;min-width:240px;
+  backdrop-filter:blur(var(--blur));-webkit-backdrop-filter:blur(var(--blur));
+  box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:screen-in 0.2s var(--trans) both;display:none}
+.profile-dropdown.open{display:block}
+.pd-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.pd-avatar{width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--border-bright)}
+.pd-name{font-size:15px;font-weight:700;color:var(--text-primary)}
+.pd-sub{font-size:12px;color:var(--text-muted);margin-top:2px}
+.pd-btn{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;
+  border-radius:var(--radius-sm);font-size:13px;font-weight:500;color:var(--text-secondary);
+  background:none;border:none;cursor:pointer;font-family:var(--font);transition:all 0.15s;text-align:left}
+.pd-btn:hover{background:var(--bg-card-hover);color:var(--text-primary)}
+.pd-btn svg{width:15px;height:15px;flex-shrink:0}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CALL SCREENS (voice + video shared)
+═══════════════════════════════════════════════════════════════════════════ */
+#screen-call,#screen-video{background:radial-gradient(ellipse 80% 60% at 50% 30%,rgba(45,108,255,0.08) 0%,transparent 70%)}
+.call-card{display:flex;flex-direction:column;align-items:center;gap:0;max-width:560px;width:92%}
+
+/* dual avatar row */
+.call-avatars-row{display:flex;align-items:flex-end;gap:32px;margin-bottom:22px}
+.call-avatar-wrap{display:flex;flex-direction:column;align-items:center;gap:9px}
+.call-avatar-label{font-size:12px;font-weight:600;color:var(--text-secondary);max-width:130px;
+  text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.call-avatar-img{width:110px;height:110px;border-radius:50%;object-fit:cover;
+  border:2px solid var(--border-bright);position:relative;z-index:1;background:var(--bg-deep)}
+.call-avatar-img.large{width:144px;height:144px}
+.call-vs{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px;flex-shrink:0}
+.avatar-ring-wrap{position:relative;display:flex;align-items:center;justify-content:center}
+.avatar-ring-outer{position:absolute;inset:-12px;border-radius:50%;border:1.5px solid transparent;
+  background:conic-gradient(var(--accent),var(--accent-teal),var(--accent)) border-box;
+  -webkit-mask:linear-gradient(#fff 0 0) padding-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;animation:spin-ring 6s linear infinite}
+.avatar-ring-pulse{position:absolute;inset:-20px;border-radius:50%;border:1px solid var(--accent);
+  opacity:0;animation:ring-pulse 2.5s ease-out infinite}
+.avatar-ring-pulse-2{animation-delay:1.25s}
+@keyframes ring-pulse{0%{transform:scale(0.85);opacity:0.5}100%{transform:scale(1.15);opacity:0}}
+@keyframes spin-ring{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+.call-status-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent-teal);margin-bottom:6px}
+.call-timer{font-size:44px;font-weight:300;letter-spacing:4px;color:var(--text-primary);
+  font-variant-numeric:tabular-nums;margin-bottom:6px;line-height:1}
+.call-peer-id{font-size:13px;color:var(--text-muted);margin-bottom:24px}
+
+.call-meta-row{display:flex;align-items:center;gap:14px;margin-bottom:24px;flex-wrap:wrap;justify-content:center}
+.call-meta-pill{display:flex;align-items:center;gap:6px;background:var(--bg-card);border:1px solid var(--border);
+  border-radius:100px;padding:6px 14px;font-size:12px;font-weight:500;color:var(--text-secondary);backdrop-filter:blur(12px)}
+.call-meta-pill svg{width:13px;height:13px}
+.quality-bars{display:flex;align-items:flex-end;gap:2px;height:14px}
+.quality-bar{width:3px;border-radius:2px;background:var(--text-muted);transition:background 0.4s}
+.quality-bar.active{background:var(--success)}
+.quality-bar:nth-child(1){height:5px}.quality-bar:nth-child(2){height:8px}
+.quality-bar:nth-child(3){height:11px}.quality-bar:nth-child(4){height:14px}
+
+.visualizer-wrap{display:flex;align-items:flex-end;gap:3px;height:36px;margin-bottom:24px}
+.viz-bar{width:4px;border-radius:4px;background:linear-gradient(to top,var(--accent),var(--accent-teal));
+  min-height:4px;transition:height 0.1s;animation:viz-anim 1.2s ease-in-out infinite alternate}
+@keyframes viz-anim{from{transform:scaleY(0.2);opacity:0.4}to{transform:scaleY(1);opacity:1}}
+.viz-bar.muted{background:var(--text-muted)!important;animation:none!important;transform:scaleY(0.15)!important;opacity:0.35!important}
+
+.call-controls{display:flex;align-items:center;gap:14px}
+.ctrl-btn{display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer}
+.ctrl-btn-circle{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s var(--trans);border:1px solid var(--border);background:var(--bg-card);backdrop-filter:blur(12px)}
+.ctrl-btn-circle svg{width:22px;height:22px}
+.ctrl-btn-circle:hover{transform:translateY(-2px);border-color:var(--border-bright);background:var(--bg-card-hover)}
+.ctrl-btn-circle.danger{background:linear-gradient(135deg,var(--danger),#FF2D55);border:none;
+  width:68px;height:68px;box-shadow:0 4px 24px rgba(255,75,110,0.4)}
+.ctrl-btn-circle.danger svg{width:26px;height:26px}
+.ctrl-btn-circle.danger:hover{box-shadow:0 6px 32px rgba(255,75,110,0.6);transform:translateY(-2px) scale(1.04)}
+.ctrl-btn-circle.active{background:rgba(45,108,255,0.18);border-color:rgba(45,108,255,0.4)}
+.ctrl-label{font-size:11px;font-weight:500;color:var(--text-muted);letter-spacing:0.3px}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VIDEO CALL SCREEN — Professional side-by-side layout
+═══════════════════════════════════════════════════════════════════════════ */
+#screen-video{
+  position:relative;overflow:hidden;
+  background:#070A12;
+  flex-direction:column;
+  padding:0;
+}
+
+/* ── Top status bar ── */
+.video-topbar{
+  position:fixed;top:0;left:0;right:0;z-index:20;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;
+  background:linear-gradient(to bottom,rgba(4,6,14,0.92) 0%,rgba(4,6,14,0) 100%);
+  pointer-events:none;
+}
+.video-topbar-left{display:flex;align-items:center;gap:14px}
+.video-topbar-logo{display:flex;align-items:center;gap:9px}
+.video-topbar-logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent-teal));
+  border-radius:9px;display:flex;align-items:center;justify-content:center}
+.video-topbar-logo-icon svg{width:16px;height:16px}
+.video-topbar-brand{font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:-0.2px}
+.video-topbar-divider{width:1px;height:18px;background:var(--border)}
+.video-status-pill{display:flex;align-items:center;gap:7px;
+  background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.25);
+  border-radius:100px;padding:5px 13px;pointer-events:none}
+.video-status-dot{width:6px;height:6px;border-radius:50%;background:var(--success);
+  animation:pulse-dot 2s ease-in-out infinite;flex-shrink:0}
+.video-status-text{font-size:12px;font-weight:600;color:var(--success);letter-spacing:0.3px}
+.video-topbar-timer{font-size:22px;font-weight:300;color:var(--text-primary);
+  font-variant-numeric:tabular-nums;letter-spacing:3px}
+.video-topbar-right{display:flex;align-items:center;gap:10px}
+.video-quality-pill{display:flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,0.06);border:1px solid var(--border);
+  border-radius:100px;padding:5px 13px;pointer-events:none}
+.video-quality-pill span{font-size:12px;color:var(--text-secondary);font-weight:500}
+
+/* ── Main video stage ── */
+.video-stage{
+  width:100vw;height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  padding:72px 28px 120px;/* top: topbar; bottom: controls */
+  gap:16px;
+  position:relative;z-index:1;
+}
+
+/* ── Video tiles ── */
+.video-tile{
+  flex:1;
+  max-width:calc(50% - 8px);
+  aspect-ratio:16/9;
+  max-height:calc(100vh - 200px);
+  position:relative;
+  border-radius:20px;
+  overflow:hidden;
+  background:#0A0E1A;
+  border:2px solid transparent;
+  transition:border-color 0.4s ease, box-shadow 0.4s ease;
+}
+.video-tile.speaking{
+  border-color:var(--accent);
+  box-shadow:0 0 0 1px var(--accent), 0 0 32px rgba(45,108,255,0.25);
+}
+.video-tile video{
+  width:100%;height:100%;
+  object-fit:cover;
+  display:block;
+  border-radius:18px;
+}
+/* Fallback avatar when camera is off */
+.video-tile-fallback{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  background:radial-gradient(ellipse 70% 60% at 50% 40%,rgba(45,108,255,0.08) 0%,#0A0E1A 70%);
+  border-radius:18px;
+}
+.video-tile-fallback img{
+  width:88px;height:88px;border-radius:50%;object-fit:cover;
+  border:3px solid var(--border-bright);
+  box-shadow:0 8px 32px rgba(0,0,0,0.4);
+}
+.video-tile-fallback-name{
+  font-size:15px;font-weight:600;color:var(--text-secondary);
+}
+/* Name + mic badge bottom-left overlay */
+.video-tile-label{
+  position:absolute;bottom:14px;left:14px;z-index:5;
+  display:flex;align-items:center;gap:8px;
+  background:rgba(4,6,14,0.72);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:100px;
+  padding:6px 14px 6px 6px;
+}
+.video-tile-label-avatar{
+  width:26px;height:26px;border-radius:50%;object-fit:cover;
+  border:1.5px solid rgba(255,255,255,0.2);flex-shrink:0;
+}
+.video-tile-label-name{
+  font-size:12px;font-weight:700;color:var(--text-primary);
+  max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.video-tile-mic-icon{
+  width:16px;height:16px;flex-shrink:0;
+  color:var(--text-secondary);margin-left:2px;
+}
+.video-tile-mic-icon.muted{color:var(--danger)}
+
+/* ── Controls dock ── */
+.video-dock{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:20;
+  display:flex;align-items:center;gap:8px;
+  background:rgba(8,10,20,0.82);
+  backdrop-filter:blur(28px) saturate(160%);-webkit-backdrop-filter:blur(28px) saturate(160%);
+  border:1px solid rgba(255,255,255,0.14);
+  border-radius:100px;
+  padding:10px 14px;
+  box-shadow:0 4px 40px rgba(0,0,0,0.55),0 1px 0 rgba(255,255,255,0.06) inset;
+}
+.video-dock-sep{width:1px;height:36px;background:rgba(255,255,255,0.1);margin:0 4px;flex-shrink:0}
+.vdock-btn{
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  cursor:pointer;min-width:56px;
+}
+.vdock-btn-circle{
+  width:48px;height:48px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s var(--trans);
+  border:1px solid rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.06);
+}
+.vdock-btn-circle svg{width:20px;height:20px;color:var(--text-primary)}
+.vdock-btn-circle:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.22);transform:translateY(-2px)}
+.vdock-btn-circle.toggled-off{
+  background:rgba(255,75,110,0.14);border-color:rgba(255,75,110,0.35);
+}
+.vdock-btn-circle.toggled-off svg{color:var(--danger)}
+.vdock-btn-circle.end-call{
+  background:linear-gradient(135deg,#FF4B6E,#FF2D55);border:none;
+  width:52px;height:52px;
+  box-shadow:0 4px 20px rgba(255,75,110,0.45);
+}
+.vdock-btn-circle.end-call svg{width:22px;height:22px;color:#fff}
+.vdock-btn-circle.end-call:hover{box-shadow:0 6px 28px rgba(255,75,110,0.65);transform:translateY(-2px) scale(1.05)}
+.vdock-label{font-size:10px;font-weight:500;color:var(--text-muted);letter-spacing:0.2px;white-space:nowrap}
+
+/* video avatar fallback (keep for compatibility) */
+.video-avatar-fallback{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:12px;background:#0A0E1A}
+.video-avatar-fallback img{width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--border-bright)}
+.video-avatar-fallback span{font-size:13px;color:var(--text-secondary)}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EDIT PROFILE SCREEN
+═══════════════════════════════════════════════════════════════════════════ */
+.edit-profile-card{max-width:500px}
+
+/* Large avatar preview with controls */
+.ep-avatar-section{display:flex;flex-direction:column;align-items:center;gap:16px;margin-bottom:28px}
+.ep-avatar-ring{position:relative;width:108px;height:108px;flex-shrink:0}
+.ep-avatar-img{width:108px;height:108px;border-radius:50%;object-fit:cover;
+  border:3px solid var(--border-bright);display:block;
+  box-shadow:0 0 0 4px rgba(45,108,255,0.12)}
+.ep-avatar-overlay{
+  position:absolute;inset:0;border-radius:50%;
+  background:rgba(8,12,20,0);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background 0.2s;
+}
+.ep-avatar-overlay:hover{background:rgba(8,12,20,0.55)}
+.ep-avatar-overlay:hover .ep-av-edit-icon{opacity:1}
+.ep-av-edit-icon{
+  opacity:0;transition:opacity 0.2s;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.ep-av-edit-icon svg{width:22px;height:22px;color:#fff}
+.ep-av-edit-icon span{font-size:10px;font-weight:600;color:#fff;letter-spacing:0.5px}
+
+/* Avatar action buttons row */
+.ep-avatar-actions{display:flex;gap:8px}
+.ep-av-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,0.05);border:1px solid var(--border);
+  border-radius:100px;padding:7px 14px;
+  font-size:12px;font-weight:600;color:var(--text-secondary);
+  cursor:pointer;transition:all 0.2s var(--trans);
+  font-family:var(--font);outline:none;white-space:nowrap;
+}
+.ep-av-btn:hover{background:rgba(255,255,255,0.1);border-color:var(--border-bright);color:var(--text-primary)}
+.ep-av-btn svg{width:13px;height:13px;flex-shrink:0}
+.ep-av-btn.danger{color:#FF8099;border-color:rgba(255,75,110,0.25);background:rgba(255,75,110,0.08)}
+.ep-av-btn.danger:hover{background:rgba(255,75,110,0.16);border-color:rgba(255,75,110,0.4);color:var(--danger)}
+
+/* Changes preview badge */
+.ep-preview-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(0,212,200,0.08);border:1px solid rgba(0,212,200,0.25);
+  border-radius:100px;padding:4px 12px;
+  font-size:11px;font-weight:600;color:var(--accent-teal);
+  opacity:0;transition:opacity 0.3s;
+}
+.ep-preview-badge.visible{opacity:1}
+.ep-preview-dot{width:5px;height:5px;border-radius:50%;background:var(--accent-teal);animation:pulse-dot 1.5s ease-in-out infinite}
+
+/* Confirm delete modal */
+.confirm-modal-bg{
+  position:fixed;inset:0;z-index:10000;
+  background:rgba(4,7,15,0.75);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity 0.25s;
+}
+.confirm-modal-bg.open{opacity:1;pointer-events:all}
+.confirm-modal{
+  background:var(--bg-deep);border:1px solid var(--border-bright);
+  border-radius:var(--radius-lg);padding:36px 40px;max-width:400px;width:88%;
+  box-shadow:0 24px 80px rgba(0,0,0,0.6);
+  animation:screen-in 0.3s var(--trans) both;
+  text-align:center;
+}
+.confirm-modal-icon{
+  width:64px;height:64px;border-radius:50%;
+  background:rgba(255,75,110,0.1);border:1px solid rgba(255,75,110,0.25);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 20px;
+}
+.confirm-modal-icon svg{width:28px;height:28px;color:var(--danger)}
+.confirm-modal-title{font-size:20px;font-weight:700;margin-bottom:8px}
+.confirm-modal-body{font-size:14px;color:var(--text-secondary);line-height:1.6;margin-bottom:28px}
+.confirm-modal-actions{display:flex;gap:10px}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INTRO OVERLAY
+═══════════════════════════════════════════════════════════════════════════ */
+#intro-overlay{position:fixed;inset:0;z-index:99999;background:#04070F;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  transition:opacity 1s cubic-bezier(0.4,0,0.2,1),filter 1s cubic-bezier(0.4,0,0.2,1)}
+#intro-overlay.intro-exit{opacity:0;filter:blur(14px);pointer-events:none}
+#intro-canvas{position:absolute;inset:0;width:100%;height:100%}
+#intro-stage{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:0;
+  animation:intro-stage-zoom 5.5s cubic-bezier(0.16,1,0.3,1) forwards}
+@keyframes intro-stage-zoom{from{transform:scale(0.88)}to{transform:scale(1.04)}}
+#intro-logo-icon{width:88px;height:88px;border-radius:26px;background:linear-gradient(135deg,#2D6CFF,#00D4C8);
+  display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(0.6) translateY(10px);filter:blur(8px);
+  box-shadow:0 0 0 0 rgba(45,108,255,0),0 24px 80px rgba(45,108,255,0.5),0 8px 32px rgba(0,212,200,0.3);
+  animation:intro-icon-appear 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.8s forwards,intro-icon-glow 1.4s ease-in-out 1.6s infinite alternate}
+#intro-logo-icon svg{width:46px;height:46px}
+@keyframes intro-icon-appear{to{opacity:1;transform:scale(1) translateY(0);filter:blur(0)}}
+@keyframes intro-icon-glow{
+  from{box-shadow:0 0 40px rgba(45,108,255,0.45),0 24px 80px rgba(45,108,255,0.35),0 0 0 0 rgba(45,108,255,0.1)}
+  to{box-shadow:0 0 70px rgba(45,108,255,0.7),0 24px 90px rgba(0,212,200,0.45),0 0 0 20px rgba(45,108,255,0)}}
+#intro-logo-halo{position:absolute;width:88px;height:88px;border-radius:26px;border:1.5px solid rgba(45,108,255,0.5);
+  opacity:0;transform:scale(1);animation:intro-halo-pulse 2s ease-out 1.5s infinite}
+@keyframes intro-halo-pulse{0%{opacity:0.7;transform:scale(1)}100%{opacity:0;transform:scale(2.2);border-radius:50%}}
+#intro-brand{margin-top:28px;font-size:52px;font-weight:800;letter-spacing:-1.5px;
+  background:linear-gradient(135deg,#ffffff 20%,#a8c4ff 60%,#00D4C8 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  opacity:0;transform:translateY(20px);filter:blur(6px);
+  animation:intro-text-rise 0.8s cubic-bezier(0.16,1,0.3,1) 1.55s forwards}
+@keyframes intro-text-rise{to{opacity:1;transform:translateY(0);filter:blur(0)}}
+#intro-tagline{margin-top:14px;font-size:15px;font-weight:400;letter-spacing:0.3px;
+  color:rgba(138,148,176,0);height:22px;position:relative;white-space:nowrap}
+#intro-tagline .tc{display:inline;opacity:0;transition:opacity 0.18s ease}
+#intro-tagline .tc.visible{opacity:1}
+#intro-cursor{display:inline-block;width:1.5px;height:15px;background:var(--accent-teal);
+  vertical-align:middle;margin-left:1px;opacity:0;animation:intro-cursor-blink 0.55s step-end infinite}
+#intro-cursor.visible{opacity:1}
+@keyframes intro-cursor-blink{0%,100%{opacity:1}50%{opacity:0}}
+#intro-line{width:0;height:1px;background:linear-gradient(90deg,transparent,rgba(45,108,255,0.6),rgba(0,212,200,0.6),transparent);
+  margin-top:28px;animation:intro-line-expand 0.9s cubic-bezier(0.16,1,0.3,1) 1.4s forwards}
+@keyframes intro-line-expand{to{width:280px}}
+#intro-version{margin-top:16px;font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;
+  color:rgba(74,82,112,0);animation:intro-version-fade 0.6s ease 2.8s forwards}
+@keyframes intro-version-fade{to{color:rgba(74,82,112,1)}}
+#intro-skip{position:absolute;bottom:32px;right:36px;z-index:10;display:flex;align-items:center;gap:7px;
+  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:100px;
+  padding:8px 18px 8px 14px;font-family:var(--font);font-size:12px;font-weight:500;color:rgba(138,148,176,0.7);
+  cursor:pointer;outline:none;opacity:0;transform:translateY(6px);transition:all 0.2s ease;
+  animation:intro-skip-appear 0.5s ease 1.2s forwards}
+#intro-skip:hover{background:rgba(255,255,255,0.09);border-color:rgba(255,255,255,0.2);color:rgba(240,244,255,0.9)}
+#intro-skip svg{width:12px;height:12px;opacity:0.6}
+@keyframes intro-skip-appear{to{opacity:1;transform:translateY(0)}}
+#intro-progress{position:absolute;bottom:0;left:0;height:2px;width:0%;
+  background:linear-gradient(90deg,var(--accent),var(--accent-teal));transition:width linear;
+  box-shadow:0 0 8px rgba(45,108,255,0.6)}
+
+/* ── UTILS ───────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar{display:none}
+.mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-24{margin-top:24px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- INTRO -->
+<div id="intro-overlay">
+  <canvas id="intro-canvas"></canvas>
+  <div id="intro-stage">
+    <div style="position:relative;display:flex;align-items:center;justify-content:center;">
+      <div id="intro-logo-halo"></div>
+      <div id="intro-logo-icon">
+        <svg viewBox="0 0 46 46" fill="none"><path d="M9 10.5C9 9.12 9.97 8 11.25 8H15.6a1.5 1.5 0 0 1 1.47 1.2l1.35 6.76a1.5 1.5 0 0 1-.43 1.41l-2.4 2.34a18.06 18.06 0 0 0 6.79 6.79l2.35-2.4a1.5 1.5 0 0 1 1.41-.43l6.76 1.35a1.5 1.5 0 0 1 1.2 1.47v4.36C34 32.03 33.03 33 31.75 33 17.18 33 9 21.4 9 10.5Z" fill="white"/><path d="M30 8c4.14 0 7.5 3.36 7.5 7.5" stroke="white" stroke-width="2.4" stroke-linecap="round" opacity="0.75"/><path d="M30 13c1.38 0 2.5 1.12 2.5 2.5" stroke="white" stroke-width="2.4" stroke-linecap="round" opacity="0.5"/></svg>
+      </div>
+    </div>
+    <div id="intro-brand">CloudCall</div>
+    <div id="intro-line"></div>
+    <div id="intro-tagline"><span id="intro-cursor"></span></div>
+    <div id="intro-version">v2.0 &middot; Crystal Clear Voice &amp; Video</div>
+  </div>
+  <button id="intro-skip">
+    <svg viewBox="0 0 12 12" fill="none"><path d="M2 2l8 4-8 4V2Z" fill="currentColor"/><line x1="10" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Skip Intro
+  </button>
+  <div id="intro-progress"></div>
+</div>
+
+<!-- GLOBAL OVERLAYS -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-ring"></div>
+  <span id="loading-text">Connecting&hellip;</span>
+</div>
+<div id="toast-container"></div>
+<canvas id="crop-canvas"></canvas>
+<input type="file" id="avatar-file-input" accept="image/*"/>
+
+<!-- AMBIENT -->
+<div class="bg-orb bg-orb-1"></div>
+<div class="bg-orb bg-orb-2"></div>
+<div class="bg-orb bg-orb-3"></div>
+
+<!-- PROFILE CHIP -->
+<div class="profile-chip hidden" id="profile-chip">
+  <img class="profile-chip-avatar" id="chip-avatar" src="" alt=""/>
+  <div>
+    <div class="profile-chip-name" id="chip-name">You</div>
+    <div class="profile-chip-sub">Edit profile</div>
+  </div>
+</div>
+
+<!-- PROFILE DROPDOWN -->
+<div class="profile-dropdown" id="profile-dropdown">
+  <div class="pd-header">
+    <img class="pd-avatar" id="pd-avatar" src="" alt=""/>
+    <div><div class="pd-name" id="pd-name">Your Name</div><div class="pd-sub">CloudCall User</div></div>
+  </div>
+  <button class="pd-btn" id="pd-edit-btn">
+    <svg viewBox="0 0 16 16" fill="none"><path d="M11.7 2.3a1 1 0 0 1 1.4 1.4l-8 8L3 12l.3-2.1 8-7.6Z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Edit Profile
+  </button>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- WELCOME -->
+  <div id="screen-welcome" class="screen">
+    <div class="glass-card" style="max-width:460px">
+      <div class="logo-wrap">
+        <div class="logo-icon"><svg viewBox="0 0 28 28" fill="none"><path d="M6 6.5C6 5.67 6.67 5 7.5 5h3.17a1 1 0 0 1 .98.8l.9 4.51a1 1 0 0 1-.29.94l-1.6 1.56a12.04 12.04 0 0 0 4.53 4.53l1.57-1.6a1 1 0 0 1 .94-.28l4.5.9a1 1 0 0 1 .8.98V20.5c0 .83-.67 1.5-1.5 1.5C10.46 22 6 14.6 6 6.5Z" fill="white"/><path d="M18 5c2.76 0 5 2.24 5 5" stroke="white" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/><path d="M18 8c1.1 0 2 .9 2 2" stroke="white" stroke-width="1.8" stroke-linecap="round" opacity="0.5"/></svg></div>
+        <span class="logo-text">CloudCall</span>
+      </div>
+      <h1 class="screen-title">Welcome</h1>
+      <p class="screen-sub">Set up your profile to get started. No account needed.</p>
+      <div class="avatar-upload-zone">
+        <div class="avatar-preview-wrap" id="welcome-avatar-wrap">
+          <div class="avatar-preview" id="welcome-avatar-preview">
+            <svg viewBox="0 0 40 40" fill="none" width="36" height="36"><circle cx="20" cy="16" r="7" stroke="rgba(255,255,255,0.3)" stroke-width="2"/><path d="M6 34c0-7.7 6.3-14 14-14s14 6.3 14 14" stroke="rgba(255,255,255,0.3)" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <div class="avatar-edit-badge" id="welcome-avatar-badge">
+            <svg viewBox="0 0 13 13" fill="none"><path d="M1.5 9.5L4 12 11.5 4.5 9 2 1.5 9.5Z" stroke="white" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <p class="avatar-upload-hint">Click to upload a photo &nbsp;<span style="color:var(--accent-teal);font-size:11px">(optional)</span><br>Auto-cropped to a circle. A generated avatar is used if skipped.</p>
+      </div>
+      <div class="input-wrap">
+        <label class="input-label" for="welcome-name-input">Display Name</label>
+        <input class="text-input" id="welcome-name-input" type="text" placeholder="Your name" maxlength="32" autocomplete="off"/>
+      </div>
+      <div id="welcome-msg" class="inline-msg mt-8"></div>
+      <div class="btn-row mt-16">
+        <button class="btn btn-primary" id="btn-welcome-continue" disabled>
+          <svg viewBox="0 0 18 18" fill="none" width="16" height="16"><path d="M3 9h10M9 4l5 5-5 5" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Continue to CloudCall
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- EDIT PROFILE -->
+  <div id="screen-edit-profile" class="screen">
+    <div class="glass-card edit-profile-card">
+      <div class="logo-wrap">
+        <div class="logo-icon"><svg viewBox="0 0 28 28" fill="none"><path d="M6 6.5C6 5.67 6.67 5 7.5 5h3.17a1 1 0 0 1 .98.8l.9 4.51a1 1 0 0 1-.29.94l-1.6 1.56a12.04 12.04 0 0 0 4.53 4.53l1.57-1.6a1 1 0 0 1 .94-.28l4.5.9a1 1 0 0 1 .8.98V20.5c0 .83-.67 1.5-1.5 1.5C10.46 22 6 14.6 6 6.5Z" fill="white"/><path d="M18 5c2.76 0 5 2.24 5 5" stroke="white" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/><path d="M18 8c1.1 0 2 .9 2 2" stroke="white" stroke-width="1.8" stroke-linecap="round" opacity="0.5"/></svg></div>
+        <span class="logo-text">CloudCall</span>
+      </div>
+      <h1 class="screen-title">Edit Profile</h1>
+      <p class="screen-sub" style="margin-bottom:24px">Update your name and profile picture</p>
+
+      <!-- Avatar section -->
+      <div class="ep-avatar-section">
+        <div class="ep-avatar-ring">
+          <img class="ep-avatar-img" id="ep-avatar-img" src="" alt="Profile"/>
+          <div class="ep-avatar-overlay" id="ep-avatar-overlay">
+            <div class="ep-av-edit-icon">
+              <svg viewBox="0 0 22 22" fill="none"><path d="M3 16.5V19h2.5l7.37-7.37-2.5-2.5L3 16.5Zm11.8-6.8a.67.67 0 0 0 0-.94l-1.56-1.56a.67.67 0 0 0-.94 0l-1.22 1.22 2.5 2.5 1.22-1.22Z" fill="currentColor"/></svg>
+              <span>Change</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preview badge -->
+        <div class="ep-preview-badge" id="ep-preview-badge">
+          <div class="ep-preview-dot"></div>
+          Unsaved changes
+        </div>
+
+        <!-- Avatar action buttons -->
+        <div class="ep-avatar-actions">
+          <button class="ep-av-btn" id="ep-btn-upload">
+            <svg viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 4l3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 10v1a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            Upload Photo
+          </button>
+          <button class="ep-av-btn danger" id="ep-btn-delete-av">
+            <svg viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M5.5 3.5V2h3v1.5M3 3.5l.7 8.5h6.6L11 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Delete Photo
+          </button>
+        </div>
+      </div>
+
+      <!-- Name field -->
+      <div class="input-wrap">
+        <label class="input-label" for="ep-name-input">Display Name</label>
+        <input class="text-input" id="ep-name-input" type="text" placeholder="Your name" maxlength="32" autocomplete="off"/>
+      </div>
+
+      <div id="ep-msg" class="inline-msg mt-8"></div>
+
+      <!-- Actions -->
+      <div class="btn-row mt-16">
+        <button class="btn btn-primary" id="ep-btn-save">
+          <svg viewBox="0 0 18 18" fill="none" width="16" height="16"><path d="M2 9l5 5 9-9" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Save Changes
+        </button>
+        <button class="btn btn-ghost" id="ep-btn-cancel">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOME -->
+  <div id="screen-home" class="screen">
+    <div class="glass-card">
+      <div class="logo-wrap">
+        <div class="logo-icon"><svg viewBox="0 0 28 28" fill="none"><path d="M6 6.5C6 5.67 6.67 5 7.5 5h3.17a1 1 0 0 1 .98.8l.9 4.51a1 1 0 0 1-.29.94l-1.6 1.56a12.04 12.04 0 0 0 4.53 4.53l1.57-1.6a1 1 0 0 1 .94-.28l4.5.9a1 1 0 0 1 .8.98V20.5c0 .83-.67 1.5-1.5 1.5C10.46 22 6 14.6 6 6.5Z" fill="white"/><path d="M18 5c2.76 0 5 2.24 5 5" stroke="white" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/><path d="M18 8c1.1 0 2 .9 2 2" stroke="white" stroke-width="1.8" stroke-linecap="round" opacity="0.5"/></svg></div>
+        <span class="logo-text">CloudCall</span>
+      </div>
+      <p class="tagline">Fast. Secure. Crystal Clear Voice &amp; Video Calling.</p>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-create-voice">
+          <svg viewBox="0 0 20 20" fill="none" width="18" height="18"><rect x="7" y="2" width="6" height="9" rx="3" stroke="white" stroke-width="1.6"/><path d="M4 10a6 6 0 0 0 12 0" stroke="white" stroke-width="1.6" stroke-linecap="round"/><line x1="10" y1="16" x2="10" y2="19" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>
+          Create Voice Call
+        </button>
+        <button class="btn btn-secondary" id="btn-create-video">
+          <svg viewBox="0 0 20 20" fill="none" width="18" height="18"><rect x="1" y="5" width="12" height="10" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M13 8.5l5-2.5v8l-5-2.5V8.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          Create Video Call
+        </button>
+        <button class="btn btn-ghost" id="btn-join-nav">
+          <svg viewBox="0 0 20 20" fill="none" width="18" height="18"><path d="M3 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Join a Call
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOST WAIT -->
+  <div id="screen-host-wait" class="screen">
+    <div class="glass-card">
+      <div class="logo-wrap">
+        <div class="logo-icon"><svg viewBox="0 0 28 28" fill="none"><path d="M6 6.5C6 5.67 6.67 5 7.5 5h3.17a1 1 0 0 1 .98.8l.9 4.51a1 1 0 0 1-.29.94l-1.6 1.56a12.04 12.04 0 0 0 4.53 4.53l1.57-1.6a1 1 0 0 1 .94-.28l4.5.9a1 1 0 0 1 .8.98V20.5c0 .83-.67 1.5-1.5 1.5C10.46 22 6 14.6 6 6.5Z" fill="white"/></svg></div>
+        <span class="logo-text">CloudCall</span>
+      </div>
+      <h1 class="screen-title">Your Call Room</h1>
+      <p class="screen-sub" id="host-wait-sub">Share this code with the person you want to call</p>
+      <div class="code-display-wrap">
+        <p class="code-label-sm">Room Code</p>
+        <div class="code-display" id="host-code">------</div>
+        <div class="code-copy-row">
+          <div class="copy-badge" id="btn-copy-code">
+            <svg viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M3 11V3a2 2 0 0 1 2-2h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            Copy Code
+          </div>
+        </div>
+      </div>
+      <div class="status-row">
+        <span class="status-dot" id="host-status-dot"></span>
+        <span id="host-status-text">Waiting for someone to join&hellip;</span>
+        <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+      </div>
+      <div id="host-msg" class="inline-msg mt-12"></div>
+      <button class="back-link mt-24" id="btn-host-cancel">
+        <svg viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Cancel and go back
+      </button>
+    </div>
+  </div>
+
+  <!-- JOIN -->
+  <div id="screen-join" class="screen">
+    <div class="glass-card">
+      <div class="logo-wrap">
+        <div class="logo-icon"><svg viewBox="0 0 28 28" fill="none"><path d="M6 6.5C6 5.67 6.67 5 7.5 5h3.17a1 1 0 0 1 .98.8l.9 4.51a1 1 0 0 1-.29.94l-1.6 1.56a12.04 12.04 0 0 0 4.53 4.53l1.57-1.6a1 1 0 0 1 .94-.28l4.5.9a1 1 0 0 1 .8.98V20.5c0 .83-.67 1.5-1.5 1.5C10.46 22 6 14.6 6 6.5Z" fill="white"/></svg></div>
+        <span class="logo-text">CloudCall</span>
+      </div>
+      <h1 class="screen-title">Join a Call</h1>
+      <p class="screen-sub">Enter the 6-digit room code</p>
+      <div class="input-wrap">
+        <label class="input-label" for="join-code-input">Room Code</label>
+        <input class="glass-input" id="join-code-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" autocomplete="off"/>
+      </div>
+      <div id="join-msg" class="inline-msg"></div>
+      <div class="btn-row mt-16">
+        <button class="btn btn-primary" id="btn-join-submit">
+          <svg viewBox="0 0 20 20" fill="none" width="18" height="18"><path d="M3 10h12M11 5l5 5-5 5" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Request to Join
+        </button>
+      </div>
+      <button class="back-link" id="btn-join-back">
+        <svg viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back to home
+      </button>
+    </div>
+  </div>
+
+  <!-- JOINING (pending) -->
+  <div id="screen-joining" class="screen">
+    <div class="glass-card" style="text-align:center">
+      <div class="logo-wrap">
+        <div class="logo-icon"><svg viewBox="0 0 28 28" fill="none"><path d="M6 6.5C6 5.67 6.67 5 7.5 5h3.17a1 1 0 0 1 .98.8l.9 4.51a1 1 0 0 1-.29.94l-1.6 1.56a12.04 12.04 0 0 0 4.53 4.53l1.57-1.6a1 1 0 0 1 .94-.28l4.5.9a1 1 0 0 1 .8.98V20.5c0 .83-.67 1.5-1.5 1.5C10.46 22 6 14.6 6 6.5Z" fill="white"/></svg></div>
+        <span class="logo-text">CloudCall</span>
+      </div>
+      <h1 class="screen-title">Request Sent</h1>
+      <p class="screen-sub">Waiting for the host to accept&hellip;</p>
+      <div style="margin:24px auto;width:48px;height:48px;border-radius:50%;border:2px solid rgba(45,108,255,0.2);border-top-color:var(--accent);animation:spin 0.8s linear infinite"></div>
+      <div class="status-row" style="justify-content:center">
+        <span class="status-dot"></span>
+        <span>Pending host approval</span>
+      </div>
+      <div id="joining-msg" class="inline-msg mt-12"></div>
+      <button class="back-link mt-24" id="btn-joining-cancel" style="margin:0 auto">
+        <svg viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <!-- DECLINED -->
+  <div id="screen-declined" class="screen">
+    <div class="glass-card" style="text-align:center">
+      <div class="declined-icon"><svg viewBox="0 0 34 34" fill="none"><circle cx="17" cy="17" r="15" stroke="currentColor" stroke-width="1.8"/><path d="M11 11l12 12M23 11L11 23" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+      <h1 class="screen-title" style="color:var(--danger)">Request Declined</h1>
+      <p class="screen-sub" style="margin-bottom:28px">The host declined your request.</p>
+      <button class="btn btn-secondary" id="btn-declined-home">Back to Home</button>
+    </div>
+  </div>
+
+  <!-- VOICE CALL -->
+  <div id="screen-call" class="screen">
+    <div class="call-card">
+      <div class="call-avatars-row">
+        <div class="call-avatar-wrap">
+          <div class="avatar-ring-wrap">
+            <img class="call-avatar-img" id="call-local-avatar" src="" alt="You"/>
+          </div>
+          <div class="call-avatar-label" id="call-local-name">You</div>
+        </div>
+        <div class="call-vs">VS</div>
+        <div class="call-avatar-wrap">
+          <div class="avatar-ring-wrap">
+            <div class="avatar-ring-pulse"></div>
+            <div class="avatar-ring-pulse avatar-ring-pulse-2"></div>
+            <div class="avatar-ring-outer"></div>
+            <img class="call-avatar-img large" id="call-remote-avatar" src="" alt="Peer"/>
+          </div>
+          <div class="call-avatar-label" id="call-remote-name">Connecting&hellip;</div>
+        </div>
+      </div>
+      <div class="call-status-label" id="call-status-label">Live Call</div>
+      <div class="call-timer" id="call-timer">00:00</div>
+      <div class="call-peer-id" id="call-peer-label">Connected</div>
+      <div class="call-meta-row">
+        <div class="call-meta-pill">
+          <div class="quality-bars" id="quality-bars">
+            <div class="quality-bar active"></div><div class="quality-bar active"></div>
+            <div class="quality-bar active"></div><div class="quality-bar active"></div>
+          </div>
+          <span id="quality-label">Excellent</span>
+        </div>
+        <div class="call-meta-pill">
+          <svg viewBox="0 0 13 13" fill="none"><rect x="4" y="1" width="5" height="7" rx="2.5" fill="currentColor"/><path d="M2 6.5A4.5 4.5 0 0 0 6.5 11v0A4.5 4.5 0 0 0 11 6.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="6.5" y1="11" x2="6.5" y2="12.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span id="mic-status-text">Mic On</span>
+        </div>
+      </div>
+      <div class="visualizer-wrap" id="viz-wrap"></div>
+      <div class="call-controls">
+        <div class="ctrl-btn" id="ctrl-mute" title="Mute (M)">
+          <div class="ctrl-btn-circle" id="ctrl-mute-circle">
+            <svg viewBox="0 0 22 22" fill="none" id="mute-icon"><rect x="7" y="2" width="8" height="11" rx="4" fill="currentColor"/><path d="M4 10a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="11" y1="17" x2="11" y2="20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="8" y1="20" x2="14" y2="20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <span class="ctrl-label" id="mute-label">Mute</span>
+        </div>
+        <div class="ctrl-btn" id="ctrl-end" title="End (Esc)">
+          <div class="ctrl-btn-circle danger">
+            <svg viewBox="0 0 26 26" fill="none"><path d="M4.5 15.5c0-1.1.76-2 1.73-2.5A19.8 19.8 0 0 1 13 11.5c2.33 0 4.55.53 6.77 1.5.97.5 1.73 1.4 1.73 2.5v1.5a1.5 1.5 0 0 1-1.5 1.5h-2a1.5 1.5 0 0 1-1.5-1.5v-.68a14.8 14.8 0 0 0-3-.32c-1.04 0-2.04.11-3 .32v.68a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5v-1.5Z" fill="white"/></svg>
+          </div>
+          <span class="ctrl-label">End Call</span>
+        </div>
+        <div class="ctrl-btn" id="ctrl-speaker" title="Speaker (S)">
+          <div class="ctrl-btn-circle" id="ctrl-speaker-circle">
+            <svg viewBox="0 0 22 22" fill="none"><path d="M3 8h3l5-4v14l-5-4H3V8Z" fill="currentColor"/><path d="M15 8c1.1.9 2 2.3 2 3.5S16.1 14 15 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <span class="ctrl-label" id="speaker-label">Speaker</span>
+        </div>
+      </div>
+    </div>
+    <div class="kbd-hint">
+      <div class="kbd-pill"><kbd>M</kbd> Mute</div>
+      <div class="kbd-pill"><kbd>Esc</kbd> End</div>
+    </div>
+  </div>
+
+  <!-- VIDEO CALL -->
+  <div id="screen-video" class="screen" style="padding:0;overflow:hidden">
+
+    <!-- Top status bar -->
+    <div class="video-topbar">
+      <div class="video-topbar-left">
+        <div class="video-topbar-logo">
+          <div class="video-topbar-logo-icon">
+            <svg viewBox="0 0 28 28" fill="none"><path d="M6 6.5C6 5.67 6.67 5 7.5 5h3.17a1 1 0 0 1 .98.8l.9 4.51a1 1 0 0 1-.29.94l-1.6 1.56a12.04 12.04 0 0 0 4.53 4.53l1.57-1.6a1 1 0 0 1 .94-.28l4.5.9a1 1 0 0 1 .8.98V20.5c0 .83-.67 1.5-1.5 1.5C10.46 22 6 14.6 6 6.5Z" fill="white"/></svg>
+          </div>
+          <span class="video-topbar-brand">CloudCall</span>
+        </div>
+        <div class="video-topbar-divider"></div>
+        <div class="video-status-pill">
+          <div class="video-status-dot"></div>
+          <span class="video-status-text" id="video-status-text">Live</span>
+        </div>
+      </div>
+      <div class="video-topbar-timer" id="video-timer">00:00</div>
+      <div class="video-topbar-right">
+        <div class="video-quality-pill">
+          <div class="quality-bars" id="vquality-bars">
+            <div class="quality-bar active"></div>
+            <div class="quality-bar active"></div>
+            <div class="quality-bar active"></div>
+            <div class="quality-bar active"></div>
+          </div>
+          <span id="vquality-label">Excellent</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Side-by-side video stage -->
+    <div class="video-stage" id="video-stage">
+
+      <!-- Remote tile (left / peer) -->
+      <div class="video-tile" id="vtile-remote">
+        <video id="video-remote" autoplay playsinline></video>
+        <div class="video-tile-fallback" id="video-remote-fallback">
+          <img id="video-remote-fallback-img" src="" alt=""/>
+          <span class="video-tile-fallback-name" id="video-remote-fallback-name">Peer</span>
+        </div>
+        <div class="video-tile-label">
+          <img class="video-tile-label-avatar" id="video-remote-label-img" src="" alt=""/>
+          <span class="video-tile-label-name" id="video-remote-label-name">Peer</span>
+          <svg class="video-tile-mic-icon" id="vmic-remote-icon" viewBox="0 0 16 16" fill="none">
+            <rect x="5" y="1" width="6" height="8" rx="3" fill="currentColor"/>
+            <path d="M3 7a5 5 0 0 0 10 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <line x1="8" y1="12" x2="8" y2="15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Local tile (right / you) -->
+      <div class="video-tile" id="vtile-local">
+        <video id="video-local" autoplay playsinline muted></video>
+        <div class="video-tile-fallback hidden" id="video-local-fallback">
+          <img id="video-local-fallback-img" src="" alt=""/>
+          <span class="video-tile-fallback-name" id="video-local-fallback-name">You</span>
+        </div>
+        <div class="video-tile-label">
+          <img class="video-tile-label-avatar" id="video-local-label-img" src="" alt=""/>
+          <span class="video-tile-label-name" id="video-local-label-name">You</span>
+          <svg class="video-tile-mic-icon" id="vmic-local-icon" viewBox="0 0 16 16" fill="none">
+            <rect x="5" y="1" width="6" height="8" rx="3" fill="currentColor"/>
+            <path d="M3 7a5 5 0 0 0 10 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <line x1="8" y1="12" x2="8" y2="15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+
+    </div><!-- /video-stage -->
+
+    <!-- Bottom glassmorphic controls dock -->
+    <div class="video-dock">
+
+      <!-- Mute mic -->
+      <div class="vdock-btn" id="vctrl-mute" title="Mute (M)">
+        <div class="vdock-btn-circle" id="vctrl-mute-circle">
+          <svg viewBox="0 0 22 22" fill="none" id="vmute-icon">
+            <rect x="7" y="2" width="8" height="11" rx="4" fill="currentColor"/>
+            <path d="M4 10a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="11" y1="17" x2="11" y2="20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="vdock-label" id="vmute-label">Mute</span>
+      </div>
+
+      <!-- Camera -->
+      <div class="vdock-btn" id="vctrl-camera" title="Camera (C)">
+        <div class="vdock-btn-circle" id="vctrl-camera-circle">
+          <svg viewBox="0 0 22 22" fill="none" id="vcam-icon">
+            <rect x="1" y="5" width="13" height="12" rx="2.5" stroke="currentColor" stroke-width="1.7"/>
+            <path d="M14 9l6-3v10l-6-3V9Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="vdock-label" id="vcam-label">Camera</span>
+      </div>
+
+      <!-- Screen share -->
+      <div class="vdock-btn" id="vctrl-share" title="Share Screen (Shift+S)">
+        <div class="vdock-btn-circle" id="vctrl-share-circle">
+          <svg viewBox="0 0 22 22" fill="none">
+            <rect x="2" y="4" width="18" height="12" rx="2.5" stroke="currentColor" stroke-width="1.7"/>
+            <path d="M8 19h6M11 16v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            <path d="M8 11l3-3 3 3M11 8v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="vdock-label" id="vshare-label">Share</span>
+      </div>
+
+      <div class="video-dock-sep"></div>
+
+      <!-- End call -->
+      <div class="vdock-btn" id="vctrl-end" title="End Call (Esc)">
+        <div class="vdock-btn-circle end-call">
+          <svg viewBox="0 0 26 26" fill="none">
+            <path d="M4.5 15.5c0-1.1.76-2 1.73-2.5A19.8 19.8 0 0 1 13 11.5c2.33 0 4.55.53 6.77 1.5.97.5 1.73 1.4 1.73 2.5v1.5a1.5 1.5 0 0 1-1.5 1.5h-2a1.5 1.5 0 0 1-1.5-1.5v-.68a14.8 14.8 0 0 0-3-.32c-1.04 0-2.04.11-3 .32v.68a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5v-1.5Z" fill="white"/>
+          </svg>
+        </div>
+        <span class="vdock-label">End Call</span>
+      </div>
+
+    </div><!-- /video-dock -->
+
+  </div>
+
+
+</div><!-- /#app -->
+
+<!-- DELETE PHOTO CONFIRM MODAL -->
+<div class="confirm-modal-bg" id="confirm-modal-bg">
+  <div class="confirm-modal">
+    <div class="confirm-modal-icon">
+      <svg viewBox="0 0 28 28" fill="none"><path d="M4 6h20M10 6V4h8v2M5 6l1.4 17h15.2L23 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="18" y1="11" x2="18" y2="19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </div>
+    <div class="confirm-modal-title">Delete Profile Picture?</div>
+    <div class="confirm-modal-body">Your uploaded photo will be removed and replaced with an automatically generated avatar using the first letter of your name.</div>
+    <div class="confirm-modal-actions">
+      <button class="btn btn-secondary" id="confirm-cancel-btn" style="font-size:14px;padding:12px">Keep Photo</button>
+      <button class="btn btn-danger" id="confirm-delete-btn" style="font-size:14px;padding:12px">Delete</button>
+    </div>
+  </div>
+</div>
+
+
+<audio id="local-audio" muted autoplay playsinline></audio>
+<audio id="remote-audio" autoplay playsinline></audio>
+
+<script type="module">
+'use strict';
+
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, doc, collection, setDoc, getDoc, updateDoc, deleteDoc,
+         addDoc, writeBatch, onSnapshot, serverTimestamp, getDocs } from 'firebase/firestore';
+
+/* ── FIREBASE CONFIG ─────────────────────────────────────────────────────── */
+const FB_CONFIG = {
+  apiKey:"AIzaSyD0nXRJ9ZVHBaNcp4UwkRpz2ZWZFUHEE_o",
+  authDomain:"cloudcall-837f5.firebaseapp.com",
+  projectId:"cloudcall-837f5",
+  storageBucket:"cloudcall-837f5.firebasestorage.app",
+  messagingSenderId:"921135603192",
+  appId:"1:921135603192:web:85ea469938f3db8ffe8a0d",
+  measurementId:"G-L4D67DM69J"
+};
+
+/* ── ICE ─────────────────────────────────────────────────────────────────── */
+const ICE = {
+  iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}],
+  iceCandidatePoolSize:10
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PROFILE MANAGER
+══════════════════════════════════════════════════════════════════════════ */
+class ProfileManager {
+  static KEY='cc_profile_v2';
+  static PALETTE=['#2D6CFF','#00C4B4','#7C3AED','#DB2777','#D97706','#059669','#DC2626'];
+
+  static load(){try{const r=localStorage.getItem(this.KEY);return r?JSON.parse(r):null}catch{return null}}
+  static save(name,avatar){const p={name:name.trim(),avatar,ts:Date.now()};localStorage.setItem(this.KEY,JSON.stringify(p));return p}
+  static clear(){localStorage.removeItem(this.KEY)}
+  // Save profile with flag indicating avatar is user-uploaded vs auto-generated
+  static saveWithFlag(name,avatar,isGenerated){
+    const p={name:name.trim(),avatar,isGenerated:!!isGenerated,ts:Date.now()};
+    localStorage.setItem(this.KEY,JSON.stringify(p));return p;
+  }
+  static isGeneratedAvatar(p){return !p||p.isGenerated===true||p.isGenerated===undefined}
+
+  static _color(n){let h=0;for(const c of(n||''))h=c.charCodeAt(0)+((h<<5)-h);return this.PALETTE[Math.abs(h)%this.PALETTE.length]}
+
+  static initials(name,size=200){
+    const c=document.createElement('canvas');c.width=c.height=size;
+    const ctx=c.getContext('2d');
+    ctx.fillStyle=this._color(name||'?');ctx.beginPath();ctx.arc(size/2,size/2,size/2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font=`bold ${size*.42}px -apple-system,sans-serif`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText((name||'?')[0].toUpperCase(),size/2,size/2+size*.03);
+    return c.toDataURL('image/png');
+  }
+
+  static cropCircle(file){
+    return new Promise((res,rej)=>{
+      const rd=new FileReader();
+      rd.onload=e=>{
+        const img=new Image();
+        img.onload=()=>{
+          const s=Math.min(img.width,img.height),OUT=300;
+          const c=document.getElementById('crop-canvas');c.width=c.height=OUT;
+          const ctx=c.getContext('2d');ctx.clearRect(0,0,OUT,OUT);
+          ctx.save();ctx.beginPath();ctx.arc(OUT/2,OUT/2,OUT/2,0,Math.PI*2);ctx.clip();
+          ctx.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,OUT,OUT);
+          ctx.restore();res(c.toDataURL('image/jpeg',0.82));
+        };img.onerror=rej;img.src=e.target.result;
+      };rd.onerror=rej;rd.readAsDataURL(file);
+    });
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   UTILITIES
+══════════════════════════════════════════════════════════════════════════ */
+const U={
+  code:()=>String(Math.floor(100000+Math.random()*900000)),
+  pid:()=>'p_'+Math.random().toString(36).slice(2,8)+Date.now().toString(36),
+  fmt:s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'),
+  digits:s=>s.replace(/\D/g,''),
+  async copy(t){try{await navigator.clipboard.writeText(t);return true}catch{const e=Object.assign(document.createElement('textarea'),{value:t});Object.assign(e.style,{position:'fixed',opacity:'0'});document.body.appendChild(e);e.select();try{return document.execCommand('copy')}finally{e.remove()}}}
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+   FIREBASE MANAGER
+══════════════════════════════════════════════════════════════════════════ */
+class FB {
+  constructor(){this._db=null;this._uns=[]}
+  init(){
+    if(!FB_CONFIG.apiKey||FB_CONFIG.apiKey.startsWith('YOUR'))return false;
+    try{const a=getApps().length?getApp():initializeApp(FB_CONFIG);this._db=getFirestore(a);return true}
+    catch(e){console.error(e);return false}
+  }
+  get db(){return this._db}
+  track(u){this._uns.push(u);return u}
+  clear(){this._uns.forEach(u=>u());this._uns=[]}
+
+  async createRoom(code,hostPid,prof,type){
+    await setDoc(doc(this._db,'rooms',code),{
+      code,hostPid,status:'waiting',type,
+      hostName:prof.name,hostAvatar:prof.avatar||null,
+      offer:null,answer:null,joinRequest:null,joinStatus:null,
+      createdAt:serverTimestamp()
+    });
+  }
+  async getRoom(code){const s=await getDoc(doc(this._db,'rooms',code));return s.exists()?{id:s.id,...s.data()}:null}
+  async upRoom(code,data){await updateDoc(doc(this._db,'rooms',code),data)}
+  async delRoom(code){
+    for(const sub of['offerCandidates','answerCandidates']){
+      try{const s=await getDocs(collection(this._db,'rooms',code,sub));
+        if(!s.empty){const b=writeBatch(this._db);s.docs.forEach(d=>b.delete(d.ref));await b.commit()}}catch{}
+    }
+    try{await deleteDoc(doc(this._db,'rooms',code))}catch{}
+  }
+  async setOffer(code,offer){await this.upRoom(code,{offer,status:'connecting'})}
+  async setAnswer(code,answer){await this.upRoom(code,{answer,status:'active'})}
+  async addICE(code,sub,c){await addDoc(collection(this._db,'rooms',code,sub),c)}
+  onRoom(code,cb){return this.track(onSnapshot(doc(this._db,'rooms',code),s=>cb(s.exists()?{id:s.id,...s.data()}:null),e=>console.error(e)))}
+  onICE(code,sub,cb){return this.track(onSnapshot(collection(this._db,'rooms',code,sub),snap=>snap.docChanges().forEach(ch=>{if(ch.type==='added')cb(ch.doc.data())}),e=>console.error(e)))}
+  async reqJoin(code,pid,prof){await this.upRoom(code,{joinRequest:{pid,name:prof.name,avatar:prof.avatar||null,ts:serverTimestamp()},joinStatus:'pending'})}
+  async respond(code,accept){await this.upRoom(code,{joinStatus:accept?'accepted':'declined'})}
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   WEBRTC MANAGER  (voice + video)
+══════════════════════════════════════════════════════════════════════════ */
+class RTC {
+  constructor(fb){
+    this._fb=fb;this._pc=null;this._local=null;this._remote=null;
+    this._audioCtx=null;this._analyser=null;this._muted=false;this._camOff=false;
+    this._qTimer=null;this._pending=[];
+    this.onConnected=null;this.onDisconnected=null;this.onQuality=null;
+  }
+  get muted(){return this._muted}
+  get camOff(){return this._camOff}
+  get analyser(){return this._analyser}
+  get localStream(){return this._local}
+
+  async getMic(){
+    this._local=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+    document.getElementById('local-audio').srcObject=this._local;
+    this._setupAnalyser();
+  }
+  async getMedia(video){
+    this._local=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:video?{width:1280,height:720,facingMode:'user'}:false});
+    if(!video)document.getElementById('local-audio').srcObject=this._local;
+    if(video){document.getElementById('video-local').srcObject=this._local;this._setupAnalyser();}
+    else this._setupAnalyser();
+  }
+
+  _setupAnalyser(){
+    try{
+      this._audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+      this._analyser=this._audioCtx.createAnalyser();this._analyser.fftSize=64;
+      const src=this._audioCtx.createMediaStreamSource(this._local);src.connect(this._analyser);
+    }catch{}
+  }
+
+  _buildPC(){
+    const pc=new RTCPeerConnection(ICE);this._pc=pc;
+    this._local.getTracks().forEach(t=>pc.addTrack(t,this._local));
+    this._remote=new MediaStream();
+    pc.ontrack=e=>e.streams[0].getTracks().forEach(t=>this._remote.addTrack(t));
+    pc.onconnectionstatechange=()=>{
+      const s=pc.connectionState;
+      if(s==='connected'){this.onConnected?.();this._startQ()}
+      if(['disconnected','failed','closed'].includes(s))this.onDisconnected?.();
+    };
+    return pc;
+  }
+
+  async startHost(code){
+    const pc=this._buildPC();
+    const gathered=[];
+    pc.onicecandidate=e=>{if(e.candidate)gathered.push(e.candidate.toJSON())};
+    const offer=await pc.createOffer({offerToReceiveAudio:true,offerToReceiveVideo:true});
+    await pc.setLocalDescription(offer);
+    await Promise.race([
+      new Promise(r=>{pc.onicegatheringstatechange=()=>{if(pc.iceGatheringState==='complete')r()}}),
+      new Promise(r=>setTimeout(r,1500))
+    ]);
+    await this._fb.setOffer(code,{sdp:pc.localDescription.sdp,type:pc.localDescription.type});
+    for(const c of gathered)await this._fb.addICE(code,'offerCandidates',c);
+    pc.onicecandidate=e=>{if(e.candidate)this._fb.addICE(code,'offerCandidates',e.candidate.toJSON())};
+    this._fb.onRoom(code,async room=>{if(!room?.answer||pc.currentRemoteDescription)return;await pc.setRemoteDescription(new RTCSessionDescription(room.answer));this._drainPending(pc)});
+    this._fb.onICE(code,'answerCandidates',async c=>{try{if(pc.remoteDescription)await pc.addIceCandidate(new RTCIceCandidate(c));else this._pending.push(c)}catch{}});
+  }
+
+  async startJoiner(code){
+    const room=await this._fb.getRoom(code);if(!room?.offer)throw new Error('No offer');
+    const pc=this._buildPC();
+    pc.onicecandidate=e=>{if(e.candidate)this._fb.addICE(code,'answerCandidates',e.candidate.toJSON())};
+    await pc.setRemoteDescription(new RTCSessionDescription(room.offer));
+    await this._drainPending(pc);
+    this._fb.onICE(code,'offerCandidates',async c=>{try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}});
+    const answer=await pc.createAnswer();await pc.setLocalDescription(answer);
+    await this._fb.setAnswer(code,{sdp:answer.sdp,type:answer.type});
+  }
+
+  async _drainPending(pc){for(const c of this._pending){try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}}this._pending=[]}
+
+  getRemoteStream(){return this._remote}
+  setRemoteVideoEl(el){if(this._remote){el.srcObject=this._remote;el.play().catch(()=>{})}}
+  setRemoteAudioEl(el){if(this._remote){el.srcObject=this._remote;el.play().catch(()=>{})}}
+
+  toggleMute(){this._muted=!this._muted;this._local?.getAudioTracks().forEach(t=>{t.enabled=!this._muted});return this._muted}
+  toggleCam(){this._camOff=!this._camOff;this._local?.getVideoTracks().forEach(t=>{t.enabled=!this._camOff});return this._camOff}
+
+  _startQ(){
+    this._qTimer=setInterval(async()=>{
+      if(!this._pc||this._pc.connectionState!=='connected')return;
+      try{
+        const stats=await this._pc.getStats();let rtt=null;
+        stats.forEach(r=>{if(r.type==='candidate-pair'&&r.state==='succeeded'&&r.currentRoundTripTime!=null)rtt=r.currentRoundTripTime*1000});
+        if(rtt!==null){const l=rtt<80?'excellent':rtt<200?'good':rtt<400?'fair':'poor';this.onQuality?.(l)}
+      }catch{}
+    },3000);
+  }
+
+  async hangup(){
+    clearInterval(this._qTimer);
+    this._local?.getTracks().forEach(t=>t.stop());this._local=null;
+    try{await this._audioCtx?.close()}catch{};this._audioCtx=null;this._analyser=null;
+    this._pc?.close();this._pc=null;this._fb.clear();
+    document.getElementById('local-audio').srcObject=null;
+    document.getElementById('remote-audio').srcObject=null;
+    document.getElementById('video-local').srcObject=null;
+    document.getElementById('video-remote').srcObject=null;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   NOTIFICATION MANAGER
+══════════════════════════════════════════════════════════════════════════ */
+class Notif {
+  constructor(){this._p=Notification.permission}
+  async reqPerm(){if(this._p==='default')this._p=await Notification.requestPermission()}
+  desktop(t,b){if(this._p==='granted')new Notification(t,{body:b})}
+  _pal(n){const p=['#2D6CFF','#00C4B4','#7C3AED','#DB2777','#D97706'];let h=0;for(const c of(n||''))h=c.charCodeAt(0)+((h<<5)-h);return p[Math.abs(h)%p.length]}
+
+  showCall(callerName,callerAvatar,isVideo){
+    return new Promise(res=>{
+      const el=document.createElement('div');el.className='toast';
+      const av=callerAvatar?`<img class="toast-caller-avatar" src="${callerAvatar}" alt="${callerName}"/>`
+        :`<div class="toast-caller-avatar" style="background:${this._pal(callerName)};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;">${(callerName||'?')[0].toUpperCase()}</div>`;
+      const callType=isVideo?'video call':'voice call';
+      el.innerHTML=`
+        <div class="toast-header">
+          <div class="toast-logo-icon"><svg viewBox="0 0 28 28" fill="none"><path d="M6 6.5C6 5.67 6.67 5 7.5 5h3.17a1 1 0 0 1 .98.8l.9 4.51a1 1 0 0 1-.29.94l-1.6 1.56a12.04 12.04 0 0 0 4.53 4.53l1.57-1.6a1 1 0 0 1 .94-.28l4.5.9a1 1 0 0 1 .8.98V20.5c0 .83-.67 1.5-1.5 1.5C10.46 22 6 14.6 6 6.5Z" fill="white"/></svg></div>
+          <span class="toast-brand">CloudCall</span>
+        </div>
+        <div class="toast-caller-row">${av}<div><div class="toast-caller-name">${callerName||'Someone'}</div><div class="toast-caller-sub">wants to start a ${callType}</div></div></div>
+        <div class="toast-actions">
+          <button class="toast-btn toast-btn-accept" id="ta-acc">Accept</button>
+          <button class="toast-btn toast-btn-decline" id="ta-dec">Decline</button>
+        </div>`;
+      document.getElementById('toast-container').appendChild(el);
+      this.desktop('CloudCall — Incoming Request',`${callerName} wants to start a ${callType}.`);
+      const dismiss=r=>{el.classList.add('closing');setTimeout(()=>el.remove(),350);res(r)};
+      el.querySelector('#ta-acc').onclick=()=>dismiss('accepted');
+      el.querySelector('#ta-dec').onclick=()=>dismiss('declined');
+    });
+  }
+
+  toast(msg,type='info',ms=3500){
+    const colors={info:'var(--accent)',success:'var(--success)',error:'var(--danger)',warning:'var(--warning)'};
+    const el=document.createElement('div');el.className='toast';
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;"><div style="width:6px;height:6px;border-radius:50%;background:${colors[type]||colors.info};flex-shrink:0;"></div><span style="font-size:13px;color:var(--text-primary);line-height:1.5;">${msg}</span></div>`;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(()=>{el.classList.add('closing');setTimeout(()=>el.remove(),350)},ms);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   UI MANAGER
+══════════════════════════════════════════════════════════════════════════ */
+class UI {
+  constructor(){
+    this.screen='home';this._tsec=0;this._ti=null;this._vti=null;
+    this._bars=[];this._vraf=null;this._muted=false;this._spk=true;this._layout='grid';
+  }
+
+  show(name){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById(`screen-${name}`)?.classList.add('active');
+    this.screen=name;
+    document.getElementById('profile-chip')?.classList.toggle('hidden',!['home'].includes(name));
+  }
+  showLoad(t='Please wait\u2026'){document.getElementById('loading-text').textContent=t;document.getElementById('loading-overlay').classList.add('visible')}
+  hideLoad(){document.getElementById('loading-overlay').classList.remove('visible')}
+
+  msg(id,text,type='error'){
+    const el=document.getElementById(id);if(!el)return;
+    const ic={error:'<svg viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" stroke-width="1.3"/><line x1="7.5" y1="5" x2="7.5" y2="8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="10.5" r=".8" fill="currentColor"/></svg>',
+      success:'<svg viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5l2 2 3-3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      info:'<svg viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="5" r=".8" fill="currentColor"/><line x1="7.5" y1="7" x2="7.5" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'};
+    el.className=`inline-msg visible ${type}`;el.innerHTML=`${ic[type]||''}<span>${text}</span>`;
+  }
+  clearMsg(id){const el=document.getElementById(id);if(el)el.className='inline-msg'}
+
+  setHostCode(c){document.getElementById('host-code').textContent=c}
+
+  /* timers */
+  startTimer(vid=false){
+    this._tsec=0;const el=document.getElementById(vid?'video-timer':'call-timer');el.textContent='00:00';
+    const ti=setInterval(()=>{el.textContent=U.fmt(++this._tsec)},1000);
+    if(vid)this._vti=ti;else this._ti=ti;
+  }
+  stopTimer(vid=false){clearInterval(vid?this._vti:this._ti)}
+
+  /* call status */
+  setCallStatus(t,sub=''){
+    const sl=document.getElementById('call-status-label');if(sl)sl.textContent=t;
+    const pl=document.getElementById('call-peer-label');if(pl)pl.textContent=sub;
+  }
+
+  setCallAvatars(local,remoteName,remoteAvatar){
+    const set=(imgId,nameId,name,av)=>{
+      const img=document.getElementById(imgId);
+      img.src=av||ProfileManager.initials(name);
+      img.onerror=()=>{img.src=ProfileManager.initials(name)};
+      document.getElementById(nameId).textContent=name;
+    };
+    set('call-local-avatar','call-local-name',local.name,local.avatar);
+    set('call-remote-avatar','call-remote-name',remoteName||'Peer',remoteAvatar);
+  }
+
+  /* video avatars */
+  setVideoLabels(localP,remoteName,remoteAvatar){
+    const lav=localP.avatar||ProfileManager.initials(localP.name);
+    const rav=remoteAvatar||ProfileManager.initials(remoteName||'Peer');
+    // Label overlays (bottom-left of each tile)
+    document.getElementById('video-local-label-img').src=lav;
+    document.getElementById('video-local-label-name').textContent=localP.name;
+    document.getElementById('video-remote-label-img').src=rav;
+    document.getElementById('video-remote-label-name').textContent=remoteName||'Peer';
+    // Fallback cards (shown when camera is off)
+    document.getElementById('video-local-fallback-img').src=lav;
+    document.getElementById('video-local-fallback-name').textContent=localP.name;
+    document.getElementById('video-remote-fallback-img').src=rav;
+    document.getElementById('video-remote-fallback-name').textContent=remoteName||'Peer';
+  }
+
+  showVideoFallback(side,show){
+    // side = 'local' or 'remote'
+    const fallback=document.getElementById(`video-${side}-fallback`);
+    const vid=document.getElementById(`video-${side}`);
+    if(fallback)fallback.classList.toggle('hidden',!show);
+    if(vid)vid.style.display=show?'none':'block';
+  }
+
+  /* visualizer */
+  buildViz(){
+    const w=document.getElementById('viz-wrap');w.innerHTML='';this._bars=[];
+    [12,18,24,32,28,20,14,22,30,34,26,18,12,20,28,24,16,10].forEach((h,i)=>{
+      const b=document.createElement('div');b.className='viz-bar';
+      b.style.cssText=`height:${h}px;animation-delay:${i*.07}s;animation-duration:${.8+(i%5)*.12}s`;
+      w.appendChild(b);this._bars.push(b);
+    });
+  }
+  startViz(analyser){
+    if(!analyser)return;
+    const data=new Uint8Array(analyser.frequencyBinCount);
+    const draw=()=>{
+      analyser.getByteFrequencyData(data);
+      this._bars.forEach((b,i)=>{
+        if(this._muted){b.className='viz-bar muted';return}
+        b.className='viz-bar';b.style.height=(4+(data[i%data.length]/255)*32)+'px';b.style.animation='none';
+      });
+      this._vraf=requestAnimationFrame(draw);
+    };draw();
+  }
+  stopViz(){cancelAnimationFrame(this._vraf);this._vraf=null}
+
+  /* mute UI */
+  setMuted(m){
+    this._muted=m;
+    document.getElementById('mute-label').textContent=m?'Unmute':'Mute';
+    document.getElementById('mic-status-text').textContent=m?'Muted':'Mic On';
+    const c=document.getElementById('ctrl-mute-circle');
+    c.style.background=m?'rgba(255,75,110,0.15)':'';c.style.borderColor=m?'rgba(255,75,110,0.4)':'';
+    document.getElementById('mute-icon').innerHTML=m
+      ?`<rect x="7" y="2" width="8" height="11" rx="4" fill="currentColor" opacity=".3"/><line x1="3" y1="3" x2="19" y2="19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 10a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`
+      :`<rect x="7" y="2" width="8" height="11" rx="4" fill="currentColor"/><path d="M4 10a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="11" y1="17" x2="11" y2="20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="8" y1="20" x2="14" y2="20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`;
+    this._bars.forEach(b=>m?b.classList.add('muted'):b.classList.remove('muted'));
+  }
+
+  setVideoMuted(m){
+    document.getElementById('vmute-label').textContent=m?'Unmute':'Mute';
+    const c=document.getElementById('vctrl-mute-circle');
+    c.classList.toggle('toggled-off',m);
+    document.getElementById('vmute-icon').innerHTML=m
+      ?`<rect x="7" y="2" width="8" height="11" rx="4" fill="currentColor" opacity=".3"/><line x1="3" y1="3" x2="19" y2="19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 10a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`
+      :`<rect x="7" y="2" width="8" height="11" rx="4" fill="currentColor"/><path d="M4 10a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="11" y1="17" x2="11" y2="20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`;
+    // Update local tile mic icon
+    const micIcon=document.getElementById('vmic-local-icon');
+    if(micIcon)micIcon.classList.toggle('muted',m);
+  }
+
+  setCamOff(off){
+    document.getElementById('vcam-label').textContent=off?'Show Cam':'Camera';
+    const c=document.getElementById('vctrl-camera-circle');
+    c.classList.toggle('toggled-off',off);
+    document.getElementById('vcam-icon').innerHTML=off
+      ?`<rect x="1" y="5" width="13" height="12" rx="2.5" stroke="currentColor" stroke-width="1.7" opacity=".3"/><line x1="1" y1="1" x2="21" y2="21" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>`
+      :`<rect x="1" y="5" width="13" height="12" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M14 9l6-3v10l-6-3V9Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>`;
+  }
+
+  toggleLayout(){/* no-op: fixed side-by-side layout */}
+
+  setQuality(l){
+    // Voice call quality bars
+    const bars=document.querySelectorAll('#quality-bars .quality-bar');
+    // Video call quality bars
+    const vbars=document.querySelectorAll('#vquality-bars .quality-bar');
+    const n={poor:1,fair:2,good:3,excellent:4}[l]||4;
+    bars.forEach((b,i)=>b.classList.toggle('active',i<n));
+    vbars.forEach((b,i)=>b.classList.toggle('active',i<n));
+    const ql=document.getElementById('quality-label');if(ql)ql.textContent=l[0].toUpperCase()+l.slice(1);
+    const vql=document.getElementById('vquality-label');if(vql)vql.textContent=l[0].toUpperCase()+l.slice(1);
+  }
+
+  updateProfileUI(p){
+    const av=p.avatar||ProfileManager.initials(p.name);
+    ['chip-avatar','pd-avatar'].forEach(id=>{const e=document.getElementById(id);if(e)e.src=av});
+    const cn=document.getElementById('chip-name');if(cn)cn.textContent=p.name;
+    const pn=document.getElementById('pd-name');if(pn)pn.textContent=p.name;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   INTRO MANAGER
+══════════════════════════════════════════════════════════════════════════ */
+class Intro {
+  constructor(){
+    this._ov=document.getElementById('intro-overlay');this._cv=document.getElementById('intro-canvas');
+    this._ctx=this._cv.getContext('2d');this._D=5400;this._t0=null;this._raf=null;
+    this._done=false;this._streaks=[];this._pts=[];this._res=null;this._SK='cc_intro_done';
+    this._TL='Fast. Secure. Crystal Clear Voice & Video.';
+  }
+  _skip(){return !new URLSearchParams(location.search).has('intro')&&sessionStorage.getItem(this._SK)==='1'}
+  play(){return new Promise(r=>{if(this._skip()){this._ov.style.display='none';return r()}
+    this._res=r;this._resize();window.addEventListener('resize',()=>this._resize());
+    this._buildPts();this._buildStr();this._typewriter();setTimeout(()=>this._finish(),this._D);
+    document.getElementById('intro-skip').addEventListener('click',()=>this._finish());
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!this._done)this._finish()},{once:true});
+    this._t0=performance.now();this._raf=requestAnimationFrame(t=>this._tick(t));
+  })}
+  _resize(){this._cv.width=innerWidth;this._cv.height=innerHeight}
+  _buildPts(){const n=Math.floor((innerWidth*innerHeight)/14000);this._pts=Array.from({length:n},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:1.5+Math.random()*4,vx:(Math.random()-.5)*.18,vy:-.12-Math.random()*.22,alpha:0,maxA:.15+Math.random()*.35,fi:Math.random()*1200,hue:Math.random()<.6?220:175}))}
+  _buildStr(){this._streaks=Array.from({length:18},()=>{const a=(Math.random()*60-30)*Math.PI/180,sp=1.8+Math.random()*3.2;return{x:-200+Math.random()*(innerWidth+400),y:Math.random()*innerHeight,len:80+Math.random()*220,vx:Math.cos(a)*sp*(Math.random()<.5?1:-1),vy:Math.sin(a)*sp,alpha:0,maxA:.04+Math.random()*.12,delay:Math.random()*2000,width:.6+Math.random()*1.4,color:Math.random()>.35?'45,108,255':'0,212,200',life:1200+Math.random()*2000,born:null}})}
+  _typewriter(){const tl=this._TL,tag=document.getElementById('intro-tagline'),cur=document.getElementById('intro-cursor');cur.classList.add('visible');const sp=[];for(const ch of tl){const e=document.createElement('span');e.className='tc';e.textContent=ch===' '?'\u00A0':ch;tag.insertBefore(e,cur);sp.push(e)}sp.forEach((s,i)=>setTimeout(()=>s.classList.add('visible'),2400+i*38));setTimeout(()=>{cur.style.animation='none';cur.style.opacity='0'},2400+sp.length*38+400)}
+  _tick(now){if(this._done)return;const e=now-this._t0;this._draw(e);const p=document.getElementById('intro-progress');p.style.width=Math.min(100,(e/this._D)*100)+'%';p.style.transitionDuration=Math.max(0,this._D-e)+'ms';this._raf=requestAnimationFrame(t=>this._tick(t))}
+  _draw(el){const ctx=this._ctx,W=this._cv.width,H=this._cv.height;ctx.fillStyle='rgba(4,7,15,0.18)';ctx.fillRect(0,0,W,H);
+    this._streaks.forEach(s=>{if(el<s.delay)return;if(s.born===null)s.born=el;const age=el-s.born;if(age>s.life)return;const half=s.life/2;s.alpha=age<half?s.maxA*(age/half):s.maxA*(1-(age-half)/half);s.x+=s.vx;s.y+=s.vy;const ang=Math.atan2(s.vy,s.vx),ex=s.x-Math.cos(ang)*s.len,ey=s.y-Math.sin(ang)*s.len;const g=ctx.createLinearGradient(s.x,s.y,ex,ey);g.addColorStop(0,`rgba(${s.color},${s.alpha})`);g.addColorStop(1,`rgba(${s.color},0)`);ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(ex,ey);ctx.strokeStyle=g;ctx.lineWidth=s.width;ctx.stroke()});
+    this._pts.forEach(p=>{if(el<p.fi)return;p.alpha=Math.min(p.maxA,p.alpha+.003);p.x+=p.vx;p.y+=p.vy;if(p.y<-10)p.y=H+10;if(p.x<-10)p.x=W+10;if(p.x>W+10)p.x=-10;const g=ctx.createRadialGradient(p.x-p.r*.3,p.y-p.r*.3,0,p.x,p.y,p.r);g.addColorStop(0,`rgba(255,255,255,${p.alpha*1.6})`);g.addColorStop(.4,`hsla(${p.hue},90%,75%,${p.alpha})`);g.addColorStop(1,`hsla(${p.hue},80%,60%,0)`);ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=g;ctx.fill()});
+    const bt=Math.min(1,Math.max(0,1-Math.abs(el-1500)/1400));if(bt>0){const g=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,320*bt);g.addColorStop(0,`rgba(45,108,255,${.06*bt})`);g.addColorStop(.5,`rgba(0,212,200,${.03*bt})`);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}}
+  _finish(){if(this._done)return;this._done=true;cancelAnimationFrame(this._raf);sessionStorage.setItem(this._SK,'1');const p=document.getElementById('intro-progress');p.style.transitionDuration='300ms';p.style.width='100%';setTimeout(()=>{this._ov.classList.add('intro-exit');setTimeout(()=>{this._ov.style.display='none';this._res?.()},1050)},160)}
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CLOUDCALL APP
+══════════════════════════════════════════════════════════════════════════ */
+class App {
+  constructor(){
+    this._fb=new FB();this._rtc=new RTC(this._fb);this._ui=new UI();this._notif=new Notif();
+    this._pid=U.pid();this._code=null;this._isHost=false;this._type='voice';
+    this._fbOk=false;this._profile=null;this._remotePeer=null;
+  }
+
+  async init(){
+    this._fbOk=this._fb.init();if(!this._fbOk)console.warn('[CC] Firebase not configured');
+    await this._notif.reqPerm();this._ui.buildViz();this._loadProfile();this._bind();this._bindEditProfile();
+  }
+
+  _loadProfile(){
+    this._profile=ProfileManager.load();
+    if(this._profile){this._ui.updateProfileUI(this._profile);this._ui.show('home')}
+    else this._ui.show('welcome');
+  }
+
+  _bind(){
+    /* ── Welcome ── */
+    let _pendingAv=null;
+    const nameIn=document.getElementById('welcome-name-input');
+    const contBtn=document.getElementById('btn-welcome-continue');
+    const fileIn=document.getElementById('avatar-file-input');
+
+    const checkCont=()=>{
+      const ok=nameIn.value.trim().length>0;
+      contBtn.disabled=!ok;
+      // Live-update preview initials when no photo chosen
+      if(!_pendingAv && nameIn.value.trim().length>0){
+        const letter=nameIn.value.trim()[0].toUpperCase();
+        const prev=document.getElementById('welcome-avatar-preview');
+        if(!prev.querySelector('img')){
+          prev.innerHTML=`<span style="font-size:38px;font-weight:800;color:#fff;line-height:1">${letter}</span>`;
+          prev.style.background=ProfileManager._color(nameIn.value.trim());
+        }
+      } else if(!_pendingAv && nameIn.value.trim().length===0){
+        const prev=document.getElementById('welcome-avatar-preview');
+        if(!prev.querySelector('img')){
+          prev.innerHTML=`<svg viewBox="0 0 40 40" fill="none" width="36" height="36"><circle cx="20" cy="16" r="7" stroke="rgba(255,255,255,0.3)" stroke-width="2"/><path d="M6 34c0-7.7 6.3-14 14-14s14 6.3 14 14" stroke="rgba(255,255,255,0.3)" stroke-width="2" stroke-linecap="round"/></svg>`;
+          prev.style.background='';
+        }
+      }
+    };
+    nameIn.addEventListener('input',checkCont);
+
+    const openFile=()=>fileIn.click();
+    document.getElementById('welcome-avatar-badge').addEventListener('click',openFile);
+    document.getElementById('welcome-avatar-wrap').addEventListener('click',openFile);
+
+    fileIn.addEventListener('change',async e=>{
+      const f=e.target.files[0];if(!f)return;
+      try{
+        this._ui.showLoad('Processing photo\u2026');
+        const d=await ProfileManager.cropCircle(f);_pendingAv=d;
+        document.getElementById('welcome-avatar-preview').innerHTML=`<img src="${d}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>`;
+        checkCont();
+      }catch{this._ui.msg('welcome-msg','Could not process image.','error')}
+      finally{this._ui.hideLoad();fileIn.value=''}
+    });
+
+    contBtn.addEventListener('click',()=>{
+      const name=nameIn.value.trim();
+      if(!name){this._ui.msg('welcome-msg','Enter your name.','error');return}
+      // If no photo was uploaded, generate an initials avatar automatically
+      const finalAvatar=_pendingAv||ProfileManager.initials(name);
+      const isGen=!_pendingAv;
+      this._profile=ProfileManager.saveWithFlag(name,finalAvatar,isGen);
+      this._ui.updateProfileUI(this._profile);this._ui.show('home');
+    });
+
+    /* ── Profile chip/dropdown ── */
+    const chip=document.getElementById('profile-chip');
+    const drop=document.getElementById('profile-dropdown');
+    chip.addEventListener('click',e=>{e.stopPropagation();drop.classList.toggle('open')});
+    document.addEventListener('click',()=>drop.classList.remove('open'));
+    drop.addEventListener('click',e=>e.stopPropagation());
+    document.getElementById('pd-edit-btn').addEventListener('click',()=>{drop.classList.remove('open');this._editProfile();});
+
+    /* ── Home ── */
+    document.getElementById('btn-create-voice').addEventListener('click',()=>{this._type='voice';this._create()});
+    document.getElementById('btn-create-video').addEventListener('click',()=>{this._type='video';this._create()});
+    document.getElementById('btn-join-nav').addEventListener('click',()=>{this._ui.clearMsg('join-msg');document.getElementById('join-code-input').value='';this._ui.show('join')});
+
+    /* ── Join ── */
+    document.getElementById('btn-join-back').addEventListener('click',()=>this._ui.show('home'));
+    document.getElementById('btn-join-submit').addEventListener('click',()=>this._join());
+    const ji=document.getElementById('join-code-input');
+    ji.addEventListener('input',e=>{e.target.value=U.digits(e.target.value).slice(0,6)});
+    ji.addEventListener('keydown',e=>{if(e.key==='Enter')this._join()});
+
+    /* ── Copy code ── */
+    document.getElementById('btn-copy-code').addEventListener('click',()=>this._copyCode());
+
+    /* ── Host cancel ── */
+    document.getElementById('btn-host-cancel').addEventListener('click',()=>this._cancelHost());
+
+    /* ── Joining cancel ── */
+    document.getElementById('btn-joining-cancel').addEventListener('click',()=>this._cancelJoin());
+
+    /* ── Declined ── */
+    document.getElementById('btn-declined-home').addEventListener('click',()=>this._ui.show('home'));
+
+    /* ── Voice call controls ── */
+    document.getElementById('ctrl-mute').addEventListener('click',()=>this._mute());
+    document.getElementById('ctrl-end').addEventListener('click',()=>this._end());
+    document.getElementById('ctrl-speaker').addEventListener('click',()=>this._speaker());
+
+    /* ── Video call controls ── */
+    document.getElementById('vctrl-mute').addEventListener('click',()=>this._vmute());
+    document.getElementById('vctrl-camera').addEventListener('click',()=>this._vcam());
+    document.getElementById('vctrl-share').addEventListener('click',()=>this._vshare());
+    document.getElementById('vctrl-end').addEventListener('click',()=>this._end(false,true));
+
+    /* ── Keyboard ── */
+    document.addEventListener('keydown',e=>{
+      if(e.ctrlKey||e.metaKey)return;
+      if(this._ui.screen==='call'){
+        if(e.key==='Escape')this._end();
+        if(e.key.toLowerCase()==='m')this._mute();
+        if(e.key.toLowerCase()==='s')this._speaker();
+      }
+      if(this._ui.screen==='video'){
+        if(e.key==='Escape')this._end(false,true);
+        if(e.key.toLowerCase()==='m')this._vmute();
+        if(e.key.toLowerCase()==='c')this._vcam();
+        if(e.key.toLowerCase()==='s'&&e.shiftKey)this._vshare();
+      }
+    });
+  }
+
+  _editProfile(){
+    // Navigate to dedicated Edit Profile screen
+    const epImg   = document.getElementById('ep-avatar-img');
+    const epName  = document.getElementById('ep-name-input');
+    const epBadge = document.getElementById('ep-preview-badge');
+    const epMsg   = document.getElementById('ep-msg');
+
+    // Populate with current profile
+    const currentAv = this._profile?.avatar || ProfileManager.initials(this._profile?.name||'?');
+    epImg.src = currentAv;
+    epName.value = this._profile?.name || '';
+    epBadge.classList.remove('visible');
+    if(epMsg) epMsg.className='inline-msg';
+
+    // Track pending changes in closure
+    this._epPendingAvatar = null;   // null = unchanged; string = new data-URL; 'DELETED' = remove
+    this._epPrevScreen = 'home';
+
+    this._ui.show('edit-profile');
+  }
+
+  _bindEditProfile(){
+    const epImg    = document.getElementById('ep-avatar-img');
+    const epName   = document.getElementById('ep-name-input');
+    const epBadge  = document.getElementById('ep-preview-badge');
+    const epMsg    = document.getElementById('ep-msg');
+    const fileIn   = document.getElementById('avatar-file-input');
+
+    const markChanged = () => epBadge.classList.add('visible');
+
+    // Click avatar overlay or Upload button → file picker
+    const openPicker = () => { fileIn.dataset.epMode='1'; fileIn.click(); };
+    document.getElementById('ep-avatar-overlay').addEventListener('click', openPicker);
+    document.getElementById('ep-btn-upload').addEventListener('click', openPicker);
+
+    // Name change → mark unsaved
+    epName.addEventListener('input', () => {
+      markChanged();
+      // If current avatar is generated (no uploaded photo), live-preview new initial
+      const isGen = this._epPendingAvatar==='DELETED' ||
+                    (this._epPendingAvatar===null && ProfileManager.isGeneratedAvatar(this._profile));
+      if(isGen && this._epPendingAvatar!=='REPLACED'){
+        const n=epName.value.trim();
+        if(n) epImg.src=ProfileManager.initials(n);
+      }
+    });
+
+    // Delete avatar button → show confirm modal
+    document.getElementById('ep-btn-delete-av').addEventListener('click', () => {
+      document.getElementById('confirm-modal-bg').classList.add('open');
+    });
+
+    // Confirm modal cancel
+    document.getElementById('confirm-cancel-btn').addEventListener('click', () => {
+      document.getElementById('confirm-modal-bg').classList.remove('open');
+    });
+
+    // Confirm modal delete
+    document.getElementById('confirm-delete-btn').addEventListener('click', () => {
+      document.getElementById('confirm-modal-bg').classList.remove('open');
+      // Generate avatar from current name in input
+      const n = epName.value.trim() || this._profile?.name || '?';
+      const gen = ProfileManager.initials(n);
+      epImg.src = gen;
+      this._epPendingAvatar = 'DELETED';
+      markChanged();
+      this._ui.msg('ep-msg','Profile photo removed. A generated avatar will be saved.','info');
+    });
+
+    // File change (for edit profile mode)
+    fileIn.addEventListener('change', async e => {
+      if(fileIn.dataset.epMode !== '1') return;
+      fileIn.dataset.epMode = '';
+      const f = e.target.files[0]; if(!f) return;
+      try{
+        this._ui.showLoad('Processing photo…');
+        const d = await ProfileManager.cropCircle(f);
+        epImg.src = d;
+        this._epPendingAvatar = d;
+        markChanged();
+        this._ui.msg('ep-msg','New photo ready. Click Save to apply.','success');
+      }catch{ this._ui.msg('ep-msg','Could not process image.','error'); }
+      finally{ this._ui.hideLoad(); fileIn.value=''; }
+    });
+
+    // Save button
+    document.getElementById('ep-btn-save').addEventListener('click', () => {
+      const name = epName.value.trim();
+      if(!name){ this._ui.msg('ep-msg','Display name cannot be empty.','error'); return; }
+
+      let finalAvatar, isGenerated;
+      if(this._epPendingAvatar === 'DELETED'){
+        // Auto-generate from new name
+        finalAvatar = ProfileManager.initials(name);
+        isGenerated = true;
+      } else if(this._epPendingAvatar && this._epPendingAvatar !== 'REPLACED'){
+        // New upload
+        finalAvatar = this._epPendingAvatar;
+        isGenerated = false;
+      } else {
+        // Unchanged avatar — but regenerate if name changed and avatar was generated
+        if(ProfileManager.isGeneratedAvatar(this._profile) && name !== this._profile?.name){
+          finalAvatar = ProfileManager.initials(name);
+          isGenerated = true;
+        } else {
+          finalAvatar = this._profile?.avatar || ProfileManager.initials(name);
+          isGenerated = ProfileManager.isGeneratedAvatar(this._profile);
+        }
+      }
+
+      this._profile = ProfileManager.saveWithFlag(name, finalAvatar, isGenerated);
+      this._ui.updateProfileUI(this._profile);
+      epBadge.classList.remove('visible');
+      this._notif.toast('Profile updated!','success',2500);
+      this._ui.show('home');
+    });
+
+    // Cancel button
+    document.getElementById('ep-btn-cancel').addEventListener('click', () => {
+      document.getElementById('confirm-modal-bg').classList.remove('open');
+      this._ui.show('home');
+    });
+  }
+
+  _ensureFB(){if(!this._fbOk){this._notif.toast('Firebase not configured.','error',5000);return false}return true}
+
+  /* ── CREATE ── */
+  async _create(){
+    if(!this._ensureFB())return;
+    const code=U.code();this._code=code;this._isHost=true;
+    this._ui.showLoad('Creating room\u2026');
+    try{
+      await this._fb.createRoom(code,this._pid,this._profile,this._type);
+      this._ui.setHostCode(code);
+      const sub=document.getElementById('host-wait-sub');
+      if(sub)sub.textContent=`Share this code for a ${this._type} call`;
+      this._ui.clearMsg('host-msg');this._ui.show('host-wait');
+      this._watchJoin(code);
+    }catch(e){console.error(e);this._notif.toast('Failed to create room.','error')}
+    finally{this._ui.hideLoad()}
+  }
+
+  _watchJoin(code){
+    this._fb.onRoom(code,async room=>{
+      if(!room||room.joinStatus!=='pending'||!room.joinRequest)return;
+      const req=room.joinRequest;
+      this._remotePeer={name:req.name,avatar:req.avatar};
+      const result=await this._notif.showCall(req.name,req.avatar,this._type==='video');
+      await this._fb.respond(code,result==='accepted');
+      if(result==='accepted'){
+        this._ui.showLoad('Connecting\u2026');
+        try{
+          await this._rtc.getMedia(this._type==='video');
+          this._rtc.onConnected=()=>this._onConn();
+          this._rtc.onDisconnected=()=>this._onDisconn();
+          this._rtc.onQuality=l=>this._ui.setQuality(l);
+          await this._rtc.startHost(code);
+        }catch(e){console.error(e);this._notif.toast('Connection failed.','error');this._ui.hideLoad()}
+      }
+    });
+  }
+
+  async _cancelHost(){
+    if(this._code)try{await this._fb.delRoom(this._code)}catch{}
+    this._fb.clear();this._code=null;this._ui.show('home');
+  }
+
+  /* ── JOIN ── */
+  async _join(){
+    if(!this._ensureFB())return;
+    const code=U.digits(document.getElementById('join-code-input').value).trim();
+    if(code.length!==6){this._ui.msg('join-msg','Enter a valid 6-digit code.','error');return}
+    this._ui.showLoad('Looking up room\u2026');this._ui.clearMsg('join-msg');
+    try{
+      const room=await this._fb.getRoom(code);
+      if(!room){this._ui.msg('join-msg','Room not found.','error');return}
+      if(room.status==='ended'){this._ui.msg('join-msg','This room has expired.','error');return}
+      if(room.hostPid===this._pid){this._ui.msg('join-msg',"You can't join your own room.",'error');return}
+      if(room.joinStatus==='pending'){this._ui.msg('join-msg','Someone is already joining.','error');return}
+      if(room.status==='active'){this._ui.msg('join-msg','Call already in progress.','error');return}
+      this._remotePeer={name:room.hostName||'Host',avatar:room.hostAvatar||null};
+      this._type=room.type||'voice';
+      this._code=code;this._isHost=false;
+      await this._fb.reqJoin(code,this._pid,this._profile);
+      this._ui.show('joining');this._watchResponse(code);
+    }catch(e){console.error(e);this._ui.msg('join-msg','Error. Try again.','error')}
+    finally{this._ui.hideLoad()}
+  }
+
+  _watchResponse(code){
+    const unsub=this._fb.onRoom(code,async room=>{
+      if(!room){this._ui.msg('joining-msg','Room was closed.','error');return}
+      if(room.joinStatus==='declined'){unsub();this._fb.clear();this._ui.show('declined');return}
+      if(room.joinStatus==='accepted'){
+        unsub();this._ui.showLoad('Connecting\u2026');
+        try{
+          await this._rtc.getMedia(this._type==='video');
+          this._rtc.onConnected=()=>this._onConn();
+          this._rtc.onDisconnected=()=>this._onDisconn();
+          this._rtc.onQuality=l=>this._ui.setQuality(l);
+          await this._rtc.startJoiner(code);
+        }catch(e){console.error(e);this._notif.toast('Connection failed.','error');this._ui.hideLoad();this._ui.show('home')}
+      }
+    });
+  }
+
+  async _cancelJoin(){
+    if(this._code)try{await this._fb.upRoom(this._code,{joinStatus:null,joinRequest:null})}catch{}
+    this._fb.clear();this._code=null;this._ui.show('home');
+  }
+
+  /* ── CONNECTED ── */
+  _onConn(){
+    this._ui.hideLoad();
+    if(this._type==='video'){
+      this._rtc.setRemoteVideoEl(document.getElementById('video-remote'));
+      this._ui.setVideoLabels(this._profile,this._remotePeer?.name,this._remotePeer?.avatar);
+      // check if remote has video track
+      const remoteStream=this._rtc.getRemoteStream();
+      const hasVid=remoteStream?.getVideoTracks().length>0;
+      this._ui.showVideoFallback('remote',!hasVid);
+      this._ui.showVideoFallback('local',false);
+      this._ui.show('video');this._ui.startTimer(true);
+      this._sharingScreen=false;
+      this._startSpeakerDetection();
+    } else {
+      this._rtc.setRemoteAudioEl(document.getElementById('remote-audio'));
+      this._ui.setCallAvatars(this._profile,this._remotePeer?.name,this._remotePeer?.avatar);
+      this._ui.setCallStatus('Live Call',`In call with ${this._remotePeer?.name||'Peer'}`);
+      this._ui.show('call');this._ui.startTimer();this._ui.startViz(this._rtc.analyser);
+    }
+    this._ui.setQuality('excellent');
+    this._notif.toast('Call connected!','success');
+    // Watch for remote hangup
+    if(this._code){this._fb.onRoom(this._code,room=>{if((!room||room.status==='ended')&&['call','video'].includes(this._ui.screen))this._end(true,this._type==='video')})}
+  }
+
+  _onDisconn(){
+    if(['call','video'].includes(this._ui.screen)){this._notif.toast('Call disconnected.','warning');this._end(true,this._type==='video')}
+  }
+
+  /* ── CONTROLS ── */
+  _mute(){const m=this._rtc.toggleMute();this._ui.setMuted(m)}
+  _vmute(){const m=this._rtc.toggleMute();this._ui.setVideoMuted(m)}
+  _vcam(){const off=this._rtc.toggleCam();this._ui.setCamOff(off);this._ui.showVideoFallback('local',off)}
+
+  async _vshare(){
+    const btn=document.getElementById('vctrl-share-circle');
+    const label=document.getElementById('vshare-label');
+    // If already sharing, stop
+    if(this._sharingScreen){
+      this._sharingScreen=false;
+      btn.classList.remove('toggled-off');
+      label.textContent='Share';
+      // Restore camera
+      try{
+        const camStream=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720,facingMode:'user'},audio:false});
+        const camTrack=camStream.getVideoTracks()[0];
+        const sender=this._rtc._pc?.getSenders().find(s=>s.track?.kind==='video');
+        if(sender)await sender.replaceTrack(camTrack);
+        const localVid=document.getElementById('video-local');
+        if(localVid&&this._rtc.localStream){
+          // Replace video track in local stream
+          const old=this._rtc.localStream.getVideoTracks()[0];
+          if(old)this._rtc.localStream.removeTrack(old);
+          this._rtc.localStream.addTrack(camTrack);
+          localVid.srcObject=this._rtc.localStream;
+        }
+      }catch{}
+      return;
+    }
+    try{
+      const screenStream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
+      const screenTrack=screenStream.getVideoTracks()[0];
+      const sender=this._rtc._pc?.getSenders().find(s=>s.track?.kind==='video');
+      if(sender)await sender.replaceTrack(screenTrack);
+      const localVid=document.getElementById('video-local');
+      if(localVid){localVid.srcObject=screenStream;}
+      this._sharingScreen=true;
+      btn.classList.add('toggled-off');
+      label.textContent='Stop';
+      // Auto-stop when user ends share via browser UI
+      screenTrack.onended=()=>{this._sharingScreen=true;this._vshare()};
+    }catch(e){
+      if(e.name!=='NotAllowedError')this._notif.toast('Screen share unavailable.','warning',3000);
+    }
+  }
+
+  // Active-speaker glow: poll audio levels via Web Audio and highlight tile
+  _startSpeakerDetection(){
+    if(!this._rtc.analyser)return;
+    const analyser=this._rtc.analyser;
+    const data=new Uint8Array(analyser.frequencyBinCount);
+    const LOCAL_TILE=document.getElementById('vtile-local');
+    const REMOTE_TILE=document.getElementById('vtile-remote');
+    let _lastLocal=false;
+    const poll=()=>{
+      if(this._ui.screen!=='video'){return}
+      analyser.getByteFrequencyData(data);
+      const avg=data.reduce((a,b)=>a+b,0)/data.length;
+      const speaking=avg>12&&!this._rtc.muted;
+      if(speaking!==_lastLocal){
+        _lastLocal=speaking;
+        LOCAL_TILE?.classList.toggle('speaking',speaking);
+        REMOTE_TILE?.classList.toggle('speaking',false);// only local is measured locally
+      }
+      requestAnimationFrame(poll);
+    };
+    poll();
+  }
+  _speaker(){const a=document.getElementById('remote-audio');a.muted=!a.muted;const c=document.getElementById('ctrl-speaker-circle');const l=document.getElementById('speaker-label');c.style.background=a.muted?'rgba(255,75,110,0.12)':'';c.style.borderColor=a.muted?'rgba(255,75,110,0.35)':'';l.textContent=a.muted?'Unmuted':'Speaker'}
+
+  async _end(remote=false,vid=false){
+    this._ui.stopTimer(vid);if(!vid)this._ui.stopViz();
+    if(this._code)try{await this._fb.upRoom(this._code,{status:'ended'});if(this._isHost)setTimeout(()=>this._fb.delRoom(this._code).catch(()=>{}),3000)}catch{}
+    await this._rtc.hangup();this._code=null;this._ui.show('home');
+    if(!remote)this._notif.toast('Call ended.','info',2500);
+  }
+
+  async _copyCode(){
+    if(!this._code)return;
+    const ok=await U.copy(this._code);
+    const btn=document.getElementById('btn-copy-code');
+    if(ok){btn.innerHTML=`<svg viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Copied!`;setTimeout(()=>{btn.innerHTML=`<svg viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M3 11V3a2 2 0 0 1 2-2h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg> Copy Code`},2000)}
+  }
+}
+
+/* ── BOOTSTRAP ── */
+const intro=new Intro();const app=new App();
+intro.play().then(()=>app.init().catch(console.error));
+</script>
+</body>
+</html>
